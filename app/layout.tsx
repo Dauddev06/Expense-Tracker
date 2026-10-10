@@ -11,15 +11,16 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  // Each page sets its own title, e.g. "Spendings · Hisaab"
-  title: { default: "Hisaab", template: "%s · Hisaab" },
-  description: "Hisaab: every rupee, accounted for. Balances, bills, income, loans and Sadqa in one simple app.",
-  applicationName: "Hisaab",
+  // Each page sets its own title, e.g. "Spendings · My Expense Manager"
+  title: { default: "Pocket Manager", template: "%s · Expense Manager" },
+  description:
+    "Pocket Manager: every rupee, accounted for. Balances, bills, income, loans and Sadqa in one simple app.",
+  applicationName: "Pocket Manager",
   // iPhone / iPad: name under the home-screen icon, and open full-screen.
   // (The icon itself comes from app/apple-icon.png.)
   appleWebApp: {
     capable: true,
-    title: "Hisaab",
+    title: "Pocket Manager", // short, so it fits under the iPhone home-screen icon
     statusBarStyle: "default",
   },
 };
@@ -36,7 +37,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // suppressHydrationWarning: the theme script below may add data-theme
     // to <html> before React loads. That's expected, so React shouldn't warn.
-    <html lang="en" className={`${jakarta.variable} h-full antialiased`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${jakarta.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
       <head>
         {/* Runs before the page is painted, so a saved Light/Dark choice never flashes */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />

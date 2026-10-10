@@ -24,7 +24,11 @@ export default async function AppLayout({
       <div className="flex flex-1 flex-col [--nav-space:4rem] lg:[--nav-space:0px]">
         <header className="sticky top-0 z-20 border-b border-line-soft bg-surface/85 backdrop-blur-lg">
           <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-4">
-            <Link href="/home" className="shrink-0 rounded-xl" aria-label="Hisaab, go to Dashboard">
+            <Link
+              href="/home"
+              className="shrink-0 rounded-xl"
+              aria-label="Pocket Manager, go to Dashboard"
+            >
               <Brand />
             </Link>
             <NavLinks />
@@ -35,7 +39,9 @@ export default async function AppLayout({
           </div>
         </header>
         {/* pb-32 on phones keeps content clear of the tab bar and + button */}
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-32 sm:pt-8 lg:pb-16">{children}</main>
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-32 sm:pt-8 lg:pb-16">
+          {children}
+        </main>
         <FabMenu />
         <BottomNav />
       </div>
