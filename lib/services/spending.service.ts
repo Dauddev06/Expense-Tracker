@@ -1,7 +1,11 @@
+import { Between } from "typeorm";
 import { getRepo } from "@/lib/db/data-source";
 import type { Spending } from "@/lib/db/entities/Spendings";
+import type { PlannedExpense } from "@/lib/db/entities/PlannedExpense";
 import type { SpendingInput } from "@/lib/spending-input";
-import { toDateInputValue } from "@/lib/constants";
+import type { SpendingAccount } from "@/lib/accounts";
+import { chapterEnd, chapterStart } from "@/lib/dates";
+import { assertNoNegativeBalance, moneyTransaction } from "./balance.service";
 
 // What we send to the browser. Plain data only (no class instances, no Dates)
 export type SpendingDTO = {
@@ -11,9 +15,10 @@ export type SpendingDTO = {
   category: string;
   spentOn: string;
   note: string | null;
+  account: SpendingAccount;
 };
 
-function toDTO(s: Spending): SpendingDTO {
+export function toSpendingDTO(s: Spending): SpendingDTO {
   return {
     id: s.id,
     title: s.title,
@@ -21,6 +26,7 @@ function toDTO(s: Spending): SpendingDTO {
     category: s.category,
     spentOn: s.spentOn,
     note: s.note,
+    account: s.account,
   };
 }
 
@@ -29,64 +35,48 @@ function toDTO(s: Spending): SpendingDTO {
 
 export async function listSpendings(
   userId: string,
-  limit?: number,
+  options: { limit?: number; chapter?: string } = {},
 ): Promise<SpendingDTO[]> {
   const repo = await getRepo("Spending");
   const rows = await repo.find({
-    where: { userId },
+    where: options.chapter
+      ? {
+          userId,
+          spentOn: Between(
+            chapterStart(options.chapter),
+            chapterEnd(options.chapter),
+          ),
+        }
+      : { userId },
     order: { spentOn: "DESC", createdAt: "DESC" },
-    take: limit,
+    take: options.limit,
   });
-  return rows.map(toDTO);
+  return rows.map(toSpendingDTO);
 }
 
 export async function createSpending(
   userId: string,
   input: SpendingInput,
 ): Promise<SpendingDTO> {
-  const repo = await getRepo("Spending");
-  const saved = await repo.save(repo.create({ ...input, userId }));
-  return toDTO(saved);
+  // Save + "is there enough money?" check in ONE transaction:
+  // if the account would go below 0 the insert is rolled back.
+  return moneyTransaction(userId, async (m) => {
+    const repo = m.getRepository<Spending>("Spending");
+    const saved = await repo.save(repo.create({ ...input, userId }));
+    await assertNoNegativeBalance(m, userId, [
+      { account: input.account, field: "amount", requested: input.amount },
+    ]);
+    return toSpendingDTO(saved);
+  });
 }
 
-export async function getSummary(userId: string) {
-  const repo = await getRepo("Spending");
-  const now = new Date();
-  const today = toDateInputValue(now);
-  const monthStart = toDateInputValue(
-    new Date(now.getFullYear(), now.getMonth(), 1),
-  );
-
-  // QueryBuilder = writing SQL with TypeScript. Generates roughly:
-  // SELECT SUM(CASE ...) ... FROM spendings s WHERE s."userId" = $1
-  const raw = await repo
-    .createQueryBuilder("s")
-    .select(
-      "COALESCE(SUM(CASE WHEN s.spentOn = :today THEN s.amount ELSE 0 END), 0)",
-      "today",
-    )
-    .addSelect(
-      "COALESCE(SUM(CASE WHEN s.spentOn >= :monthStart THEN s.amount ELSE 0 END), 0)",
-      "month",
-    )
-    .addSelect("COUNT(*)", "count")
-    .where("s.userId = :userId", { userId })
-    .setParameters({ today, monthStart })
-    .getRawOne<{ today: string; month: string; count: string }>();
-
-  return {
-    today: Number(raw?.today ?? 0),
-    month: Number(raw?.month ?? 0),
-    count: Number(raw?.count ?? 0),
-  };
-}
 export async function getSpending(
   userId: string,
   id: string,
 ): Promise<SpendingDTO | null> {
   const repo = await getRepo("Spending");
   const row = await repo.findOne({ where: { id, userId } });
-  return row ? toDTO(row) : null;
+  return row ? toSpendingDTO(row) : null;
 }
 
 export async function updateSpending(
@@ -94,20 +84,59 @@ export async function updateSpending(
   id: string,
   input: SpendingInput,
 ): Promise<SpendingDTO | null> {
-  const repo = await getRepo("Spending");
-  const existing = await repo.findOne({ where: { id, userId } });
-  if (!existing) return null;
+  return moneyTransaction(userId, async (m) => {
+    const repo = m.getRepository<Spending>("Spending");
+    const existing = await repo.findOne({ where: { id, userId } });
+    if (!existing) return null;
 
-  repo.merge(existing, input); // copy the new values onto the loaded entity
-  const saved = await repo.save(existing);
-  return toDTO(saved);
+    repo.merge(existing, input); // copy the new values onto the loaded entity
+    const saved = await repo.save(existing);
+    await assertNoNegativeBalance(m, userId, [
+      { account: input.account, field: "amount", requested: input.amount },
+    ]);
+    return toSpendingDTO(saved);
+  });
 }
 
 export async function deleteSpending(
   userId: string,
   id: string,
 ): Promise<boolean> {
+  return moneyTransaction(userId, async (m) => {
+    // If this spending was made by "Mark as paid" on an expected expense,
+    // that expense goes back to "still to pay".
+    await m
+      .getRepository<PlannedExpense>("PlannedExpense")
+      .update(
+        { spendingId: id, userId },
+        { status: "pending", spendingId: null },
+      );
+    const result = await m
+      .getRepository<Spending>("Spending")
+      .delete({ id, userId });
+    // Deleting a spending only ADDS money back, so no balance check needed.
+    return (result.affected ?? 0) > 0;
+  });
+}
+
+// How much was spent in a month, per category (biggest first).
+export async function getSpendingByCategory(
+  userId: string,
+  chapter: string,
+): Promise<{ category: string; total: number }[]> {
   const repo = await getRepo("Spending");
-  const result = await repo.delete({ id, userId });
-  return (result.affected ?? 0) > 0;
+  // SELECT category, SUM(amount) ... GROUP BY category
+  const rows = await repo
+    .createQueryBuilder("s")
+    .select("s.category", "category")
+    .addSelect("SUM(s.amount)", "total")
+    .where("s.userId = :userId", { userId })
+    .andWhere("s.spentOn BETWEEN :start AND :end", {
+      start: chapterStart(chapter),
+      end: chapterEnd(chapter),
+    })
+    .groupBy("s.category")
+    .orderBy("total", "DESC")
+    .getRawMany<{ category: string; total: string }>();
+  return rows.map((r) => ({ category: r.category, total: Number(r.total) }));
 }

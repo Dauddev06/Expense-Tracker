@@ -9,6 +9,7 @@ import {
   type Relation,
 } from "typeorm";
 import type { User } from "./Users";
+import type { SpendingAccount } from "../../accounts";
 
 @Entity({ name: "spendings" })
 export class Spending {
@@ -41,6 +42,11 @@ export class Spending {
 
   @Column({ type: "text", nullable: true })
   note!: string | null;
+
+  // Which account the money came out of. The default makes every spending
+  // that existed before this column was added a "current" spending.
+  @Column({ type: "varchar", length: 20, default: "current" })
+  account!: SpendingAccount;
 
   @Column({ type: "uuid" })
   userId!: string;

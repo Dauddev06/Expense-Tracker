@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:migration:generate": "tsx ./node_modules/typeorm/cli.js migration:generate -d lib/db/migration-data-source.ts",
+    "db:migrate": "tsx ./node_modules/typeorm/cli.js migration:run -d lib/db/migration-data-source.ts",
+    "db:migration:revert": "tsx ./node_modules/typeorm/cli.js migration:revert -d lib/db/migration-data-source.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -26,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   },
   "packageManager": "pnpm@11.25.0"

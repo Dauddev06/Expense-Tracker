@@ -29,8 +29,78 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+## Local development
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+docker compose up -d     # start Postgres (and Adminer on http://localhost:8081)
+cp .env.example .env.local
+pnpm install
+pnpm dev                 # http://localhost:3000
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+In development TypeORM's `synchronize` creates and updates the tables for you.
+In production it is OFF: tables are created with **migrations** (below).
+
+## Deploying to Vercel
+
+The app runs on Vercel with a hosted Postgres from **Neon** (create it from the
+Vercel dashboard: *Storage → Create Database → Neon*). Docker is only for local
+development. No code changes are needed to deploy.
+
+### 1. Environment variables
+
+In Vercel: *Project → Settings → Environment Variables*:
+
+| Name           | Value                                                    | Why                                                           |
+| -------------- | -------------------------------------------------------- | ------------------------------------------------------------- |
+| `DATABASE_URL` | Neon's connection string (Neon adds it for you)          | Where the database is. Replaces all the `DB_*` values.        |
+| `DB_SSL`       | `true`                                                   | Neon only accepts encrypted connections.                      |
+| `DB_POOL_MAX`  | `3`                                                      | Each serverless function opens its own pool, so keep it small. |
+
+Do **not** set `DB_HOST`, `DB_USER`, etc. on Vercel. `NODE_ENV=production` is
+set by Vercel automatically, which turns `synchronize` off.
+
+### 2. Create the tables (run migrations from your laptop)
+
+Copy the connection string from Neon (*Connection Details*, the
+non-pooled one is best for migrations), then run the migrations against it
+**before** the first deploy, and again whenever you add a new migration.
+
+macOS / Linux:
+
+```bash
+DATABASE_URL="postgresql://USER:PASSWORD@HOST/DB?sslmode=require" DB_SSL=true pnpm db:migrate
+```
+
+Windows (PowerShell):
+
+```powershell
+$env:DATABASE_URL="postgresql://USER:PASSWORD@HOST/DB?sslmode=require"
+$env:DB_SSL="true"
+pnpm db:migrate
+Remove-Item Env:DATABASE_URL; Remove-Item Env:DB_SSL   # so later commands use your local DB again
+```
+
+`pnpm db:migration:revert` undoes the last migration (same environment variables).
+
+### 3. Deploy
+
+Push to GitHub and import the repo in Vercel (or run `vercel`). The build
+command is the normal `pnpm build`.
+
+### Changing the database later (the migration workflow)
+
+1. Change an entity in `lib/db/entities/` (locally `synchronize` updates your dev DB).
+2. Generate a migration. It compares the entities with a database that is
+   exactly at the current migrations, so use a fresh empty database for it:
+
+   ```bash
+   docker exec spendings-postgres createdb -U spender spendings_migrations
+   DATABASE_URL="postgresql://spender:spender_pass@localhost:5432/spendings_migrations" pnpm db:migrate
+   DATABASE_URL="postgresql://spender:spender_pass@localhost:5432/spendings_migrations" pnpm db:migration:generate lib/db/migrations/AddSomething
+   docker exec spendings-postgres dropdb -U spender spendings_migrations
+   ```
+
+   (PowerShell: set `$env:DATABASE_URL=...` first, then run the same `pnpm` commands.)
+3. Read the new file in `lib/db/migrations/` and commit it.
+4. Run `pnpm db:migrate` against production (step 2 above), then deploy.

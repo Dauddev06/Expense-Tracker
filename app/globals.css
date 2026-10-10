@@ -1,36 +1,340 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   DESIGN TOKENS
+   Every colour has a NAME that says what it is for (surface, ink, muted,
+   brand, positive...). Light and dark mode give each name its own value
+   further down, so components never need "dark:" classes.
+   Use them like normal Tailwind colours: bg-surface, text-muted, ring-line...
+   ========================================================================== */
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+
+  /* Backgrounds and borders */
+  --color-canvas: var(--canvas); /* the page behind the cards */
+  --color-surface: var(--surface); /* cards, inputs, bars */
+  --color-surface-2: var(--surface-2); /* soft fill inside a card, hover */
+  --color-tile: var(--tile); /* neutral icon tiles, progress tracks */
+  --color-line: var(--line); /* borders and card outlines */
+  --color-line-soft: var(--line-soft); /* dividers between list rows */
+
+  /* Text */
+  --color-ink: var(--ink); /* main text */
+  --color-ink-2: var(--ink-2); /* labels, secondary text */
+  --color-muted: var(--muted); /* dates, hints, meta text */
+  --color-faint: var(--faint); /* decorative only (chevrons, placeholders) */
+
+  /* Brand */
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-ink: var(--brand-ink); /* brand-coloured text and icons */
+  --color-brand-soft: var(--brand-soft); /* brand-tinted backgrounds */
+  --color-on-brand: var(--on-brand); /* text on a brand background */
+  --color-hero-from: var(--hero-from);
+  --color-hero-to: var(--hero-to);
+
+  /* Meaning: money in, money out, warnings, Sadqa */
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-positive-solid: var(--positive-solid);
+  --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
+  --color-negative-solid: var(--negative-solid);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+  --color-sadqa: var(--sadqa);
+  --color-sadqa-soft: var(--sadqa-soft);
+
+  --color-overlay: var(--overlay); /* dims the page behind pop-ups */
 }
 
+/* ---------- Light theme (the default) ---------- */
+:root {
+  color-scheme: light;
+  --canvas: #f4f5f9;
+  --surface: #ffffff;
+  --surface-2: #f7f8fb;
+  --tile: #eff1f6;
+  --line: #e2e5ee;
+  --line-soft: #eef0f5;
+  --ink: #0e1525;
+  --ink-2: #344054;
+  --muted: #5d6679;
+  --faint: #98a2b3;
+  --brand: #4f46e5;
+  --brand-strong: #4338ca;
+  --brand-ink: #4338ca;
+  --brand-soft: #eef0ff;
+  --on-brand: #ffffff;
+  --hero-from: #4f46e5;
+  --hero-to: #7c3aed;
+  --positive: #047857;
+  --positive-soft: #e7f7f0;
+  --positive-solid: #10b981;
+  --negative: #c0261d;
+  --negative-soft: #fef0ef;
+  --negative-solid: #dc2626;
+  --warning: #8a3d0b;
+  --warning-soft: #fff6e5;
+  --warning-line: #f9d79a;
+  --sadqa: #d0204f;
+  --sadqa-soft: #ffeef2;
+  --overlay: rgb(14 21 37 / 0.5);
+  --card-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 6px 20px -8px rgb(16 24 40 / 0.1);
+}
+
+/* ---------- Dark theme ----------
+   Used when the phone/computer is in dark mode (unless the user picked
+   "Light" in Settings), or when the user picked "Dark".
+   The two blocks are identical; CSS can't share one block for both cases. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --canvas: #0a0e17;
+    --surface: #121825;
+    --surface-2: #182031;
+    --tile: #1f2839;
+    --line: #273044;
+    --line-soft: #1d2535;
+    --ink: #edf1f8;
+    --ink-2: #c6cedc;
+    --muted: #96a1b5;
+    --faint: #5e697d;
+    --brand: #4f46e5;
+    --brand-strong: #5b54f0;
+    --brand-ink: #a9b2ff;
+    --brand-soft: rgb(99 102 241 / 0.16);
+    --on-brand: #ffffff;
+    --hero-from: #4338ca;
+    --hero-to: #6d28d9;
+    --positive: #4ade9b;
+    --positive-soft: rgb(16 185 129 / 0.14);
+    --positive-solid: #10b981;
+    --negative: #ff8077;
+    --negative-soft: rgb(239 68 68 / 0.14);
+    --negative-solid: #dc2626;
+    --warning: #fbbf4a;
+    --warning-soft: rgb(245 158 11 / 0.12);
+    --warning-line: rgb(245 158 11 / 0.32);
+    --sadqa: #ff7d9d;
+    --sadqa-soft: rgb(244 63 94 / 0.15);
+    --overlay: rgb(0 0 0 / 0.6);
+    --card-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0a0e17;
+  --surface: #121825;
+  --surface-2: #182031;
+  --tile: #1f2839;
+  --line: #273044;
+  --line-soft: #1d2535;
+  --ink: #edf1f8;
+  --ink-2: #c6cedc;
+  --muted: #96a1b5;
+  --faint: #5e697d;
+  --brand: #4f46e5;
+  --brand-strong: #5b54f0;
+  --brand-ink: #a9b2ff;
+  --brand-soft: rgb(99 102 241 / 0.16);
+  --on-brand: #ffffff;
+  --hero-from: #4338ca;
+  --hero-to: #6d28d9;
+  --positive: #4ade9b;
+  --positive-soft: rgb(16 185 129 / 0.14);
+  --positive-solid: #10b981;
+  --negative: #ff8077;
+  --negative-soft: rgb(239 68 68 / 0.14);
+  --negative-solid: #dc2626;
+  --warning: #fbbf4a;
+  --warning-soft: rgb(245 158 11 / 0.12);
+  --warning-line: rgb(245 158 11 / 0.32);
+  --sadqa: #ff7d9d;
+  --sadqa-soft: rgb(244 63 94 / 0.15);
+  --overlay: rgb(0 0 0 / 0.6);
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+/* ==========================================================================
+   BASE
+   ========================================================================== */
 body {
-  @apply bg-slate-50 text-slate-900 font-sans;
+  @apply bg-canvas font-sans text-ink;
+  -webkit-tap-highlight-color: transparent; /* no grey flash when tapping on phones */
 }
 
-/* Small reusable building blocks so our JSX stays readable */
-.card {
-  @apply rounded-2xl border border-slate-200 bg-white p-6 shadow-sm;
+::selection {
+  @apply bg-brand/20;
 }
-.label {
-  @apply mb-1 block text-sm font-medium text-slate-700;
+
+/* A clear outline on whatever has keyboard focus (Tab key users) */
+:focus-visible {
+  outline: 3px solid var(--brand-ink);
+  outline-offset: 2px;
 }
-.input {
-  @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200;
+
+/* ==========================================================================
+   COMPONENTS
+   Small reusable building blocks so our JSX stays readable. They live in
+   the "components" layer, so a utility next to them still wins
+   (e.g. "card p-3" makes a card with less padding).
+   ========================================================================== */
+@layer components {
+  /* ---------- Layout ---------- */
+  .card {
+    @apply rounded-2xl bg-surface p-5 shadow-[var(--card-shadow)] ring-1 ring-line sm:p-6;
+  }
+  .card-header {
+    @apply mb-4 flex items-center justify-between gap-3;
+  }
+  .card-title {
+    @apply text-[15px] font-bold text-ink;
+  }
+  .page-title {
+    @apply text-2xl font-bold tracking-tight text-ink sm:text-[28px];
+  }
+  .page-subtitle {
+    @apply mt-1 text-[15px] text-muted;
+  }
+  .section-title {
+    @apply mb-3 text-[15px] font-bold text-ink;
+  }
+
+  /* ---------- Numbers ---------- */
+  .stat-label {
+    @apply text-[13px] font-semibold text-muted;
+  }
+  .amount {
+    @apply font-bold tracking-tight whitespace-nowrap tabular-nums;
+  }
+  .money-in {
+    @apply text-positive tabular-nums;
+  }
+  .money-out {
+    @apply text-negative tabular-nums;
+  }
+
+  /* ---------- Lists ---------- */
+  .list-row {
+    @apply flex min-h-16 items-center gap-3 py-3;
+  }
+  .row-title {
+    @apply font-semibold text-ink;
+  }
+  .row-meta {
+    @apply text-sm text-muted;
+  }
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold;
+  }
+
+  /* ---------- Forms ---------- */
+  .label {
+    @apply mb-1.5 block text-sm font-semibold text-ink-2;
+  }
+  .input {
+    @apply min-h-12 w-full rounded-xl border border-line bg-surface px-3.5 py-2 text-base text-ink transition outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15;
+  }
+  .input-error {
+    @apply border-negative focus:border-negative focus:ring-negative/15;
+  }
+  /* Big amount field with "PKR" shown inside on the left */
+  .input-amount {
+    @apply min-h-14 w-full rounded-xl border border-line bg-surface py-3 pr-3 pl-16 text-2xl font-bold text-ink tabular-nums transition outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15;
+  }
+  .error-text {
+    @apply mt-1.5 text-sm font-medium text-negative;
+  }
+  .hint-text {
+    @apply mt-1.5 text-sm text-muted;
+  }
+  /* The Save / Cancel row. On phones it sticks to the bottom of the screen
+     (just above the tab bar) so you never have to scroll to save. */
+  .form-actions {
+    @apply sticky bottom-[calc(var(--nav-space,0px)+env(safe-area-inset-bottom))] z-10 -mx-5 mt-6 flex flex-wrap gap-3 border-t border-line-soft bg-surface/95 px-5 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:p-0 lg:backdrop-blur-none;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-on-brand shadow-sm shadow-brand/25 transition select-none hover:bg-brand-strong active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+  }
+  .btn-secondary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-surface px-4 py-2 text-sm font-semibold text-ink-2 ring-1 ring-line transition select-none hover:bg-surface-2 active:scale-[0.98] disabled:opacity-60;
+  }
+  .btn-danger {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-negative-solid px-4 py-2 text-sm font-semibold text-white transition select-none hover:brightness-110 active:scale-[0.98] disabled:opacity-60;
+  }
+  /* Same size as a button, but looks like a quiet text link */
+  .btn-link {
+    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-brand-ink transition hover:bg-brand-soft;
+  }
+  /* Square icon-only button (always give it an aria-label) */
+  .btn-icon {
+    @apply inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-2 transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-faint disabled:opacity-50 disabled:hover:bg-transparent;
+  }
+
+  /* ---------- Choice buttons (accounts, categories, yes/no...) ---------- */
+  .chip {
+    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink-2 transition select-none hover:bg-surface-2 active:scale-[0.98];
+  }
+  .chip-selected {
+    @apply border-brand bg-brand text-on-brand shadow-sm shadow-brand/25 hover:bg-brand-strong;
+  }
+
+  /* ---------- The big gradient card on the dashboard ---------- */
+  .hero {
+    @apply rounded-3xl bg-linear-to-br from-hero-from to-hero-to p-5 text-on-brand shadow-lg shadow-brand/20 sm:p-7;
+  }
 }
-.input-error {
-  @apply border-red-400 focus:border-red-500 focus:ring-red-200;
+
+/* ==========================================================================
+   MOTION
+   ========================================================================== */
+
+/* Success message that fades in, waits, then fades out */
+@keyframes toast-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  8%,
+  80% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+  }
 }
-.error-text {
-  @apply mt-1 text-xs text-red-600;
+.toast {
+  animation: toast-fade 3.5s ease forwards;
 }
-.btn-primary {
-  @apply inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60;
+
+/* Pop-ups slide up a little as they open */
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
 }
-.btn-secondary {
-  @apply inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60;
+dialog[open] {
+  animation: sheet-up 0.2s ease-out;
 }
-.btn-danger {
-  @apply inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60;
+dialog::backdrop {
+  background: var(--overlay);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+  .toast {
+    animation-duration: 3.5s !important;
+    animation-timing-function: steps(1, end);
+  }
 }

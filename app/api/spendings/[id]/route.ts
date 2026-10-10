@@ -6,6 +6,7 @@ import {
   updateSpending,
 } from "@/lib/services/spending.service";
 import { isUuid, parseSpendingInput } from "@/lib/spending-input";
+import { fieldErrorResponse } from "@/lib/api-responses";
 
 const notFound = () =>
   NextResponse.json({ message: "Spending not found" }, { status: 404 });
@@ -50,8 +51,12 @@ export async function PATCH(
     );
   }
 
-  const spending = await updateSpending(user.id, id, parsed.data);
-  return spending ? NextResponse.json({ spending }) : notFound();
+  try {
+    const spending = await updateSpending(user.id, id, parsed.data);
+    return spending ? NextResponse.json({ spending }) : notFound();
+  } catch (error) {
+    return fieldErrorResponse(error);
+  }
 }
 
 // DELETE /api/spendings/:id
