@@ -5,7 +5,7 @@ import {
   listPlanned,
   summarizePlanned,
 } from "./expected.service";
-import { listIncomes } from "./income.service";
+import { ensureThisMonthIncome, listIncomes } from "./income.service";
 import { getUserAccounts } from "./savings-account.service";
 import { getMonthSpending } from "./spending.service";
 import { currentChapter } from "@/lib/dates";
@@ -22,7 +22,8 @@ export async function getDashboard(userId: string, chapter: string) {
   const [accounts, ledger, incomes, planned, carried, spending] = await Promise.all([
     getUserAccounts(userId),
     getAccountsChapter(userId, chapter),
-    listIncomes(userId, chapter),
+    // New month: last month's "Every month" incomes are copied in first
+    ensureThisMonthIncome(userId, chapter).then(() => listIncomes(userId, chapter)),
     repeatingReady.then(() => listPlanned(userId, chapter)),
     // Unpaid expected expenses from earlier months still count while it's this month
     isThisMonth ? listCarriedOver(userId, chapter) : Promise.resolve([]),

@@ -22,6 +22,7 @@ type Values = {
   amount: number;
   received: "yes" | "no";
   receivedOn: string;
+  repeats: "yes" | "no";
 };
 
 type Props = {
@@ -32,7 +33,7 @@ type Props = {
   // what this income was received with). Left out = nothing is saved.
   savings?: { percent: number; account: string };
   incomeId?: string; // set when editing
-  initial?: { title: string; amount: number; received: boolean; receivedOn: string | null };
+  initial?: { title: string; amount: number; received: boolean; receivedOn: string | null; repeats: boolean };
   submitLabel: string;
   onSaved?: () => void; // the welcome flow continues instead of navigating
 };
@@ -63,6 +64,7 @@ export function IncomeForm({ chapter, balances, sadqaPercent, savings, incomeId,
       amount: initial?.amount ?? (undefined as unknown as number),
       received: initial?.received ? "yes" : "no",
       receivedOn: initial?.receivedOn ?? today,
+      repeats: initial?.repeats === false ? "no" : "yes",
     },
   });
 
@@ -92,6 +94,7 @@ export function IncomeForm({ chapter, balances, sadqaPercent, savings, incomeId,
       amount: values.amount,
       received: values.received === "yes",
       receivedOn: values.received === "yes" ? values.receivedOn : null,
+      repeats: values.repeats === "yes",
     };
     const { ok, data } = incomeId
       ? await sendJson(`/api/income/${incomeId}`, "PATCH", body)
@@ -142,6 +145,23 @@ export function IncomeForm({ chapter, balances, sadqaPercent, savings, incomeId,
         label="How much?"
         registration={register("amount", amountRules())}
         error={errors.amount?.message}
+      />
+
+      <Controller
+        name="repeats"
+        control={control}
+        render={({ field }) => (
+          <ChoiceChips
+            label="Does it come every month?"
+            value={field.value}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+            options={[
+              { value: "yes", label: "Every month" },
+              { value: "no", label: "Just this month" },
+            ]}
+          />
+        )}
       />
 
       <Controller

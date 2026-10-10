@@ -21,6 +21,7 @@ export type IncomeInput = {
   received: boolean;
   receivedOn: string | null; // required when received = true
   savings: SavingsChoice | null; // null = use the Settings
+  repeats: boolean; // "Every month"
 };
 
 // How much of an income to save, and into which savings account
@@ -69,6 +70,8 @@ export function parseIncomeInput(body: unknown): ParseResult<IncomeInput> {
     received,
     receivedOn: received ? (receivedOn as string) : null,
     savings,
+    // Older clients don't send it: income repeats every month by default
+    repeats: b.repeats !== false,
   });
 }
 

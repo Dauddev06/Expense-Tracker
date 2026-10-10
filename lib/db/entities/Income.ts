@@ -12,7 +12,9 @@ import {
 import type { User } from "./Users";
 import { moneyTransformer, nullableMoneyTransformer } from "../transformers";
 
-export type IncomeStatus = "expected" | "received";
+// "skipped" = deleted for ONE month. The row stays (hidden) so that month is
+// never filled again, and it still repeats into the next month if `repeats`.
+export type IncomeStatus = "expected" | "received" | "skipped";
 
 @Entity({ name: "incomes" })
 @Index(["userId", "chapter"])
@@ -65,6 +67,20 @@ export class Income {
 
   @Column({ type: "varchar", length: 20, nullable: true })
   savingsAccountApplied!: string | null;
+
+  // true = "Every month": on the 1st it copies itself into the new month
+  // (as "not received yet"). false = one-off money, like a bonus.
+  @Column({ type: "boolean", default: true })
+  repeats!: boolean;
+
+  // The income in the month before that this one was copied from. UNIQUE, so
+  // one income can never be copied twice (even if two requests race).
+  @Column({ type: "uuid", nullable: true, unique: true })
+  copiedFromId!: string | null;
+
+  @ManyToOne("Income", { onDelete: "SET NULL", nullable: true })
+  @JoinColumn({ name: "copiedFromId" })
+  copiedFrom!: Relation<Income> | null;
 
   @Column({ type: "uuid" })
   userId!: string;
