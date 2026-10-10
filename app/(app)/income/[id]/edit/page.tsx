@@ -39,6 +39,7 @@ export default async function EditIncomePage({ params }: PageProps<"/income/[id]
             amount: income.amount,
             received: income.status === "received",
             receivedOn: income.receivedOn,
+            repeats: income.repeats,
           }}
           submitLabel="Save changes"
         />
