@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { getLoan } from "@/lib/services/loan.service";
 import { getBalances } from "@/lib/services/balance.service";
+import { getAllAccountNames } from "@/lib/services/savings-account.service";
 import { isUuid } from "@/lib/spending-input";
 import { accountLabel } from "@/lib/accounts";
 import { formatMoney } from "@/lib/constants";
@@ -19,7 +20,11 @@ export default async function LoanDetailPage({ params }: PageProps<"/loans/[id]"
   if (!user) redirect("/login");
 
   if (!isUuid(id)) notFound();
-  const [loan, balances] = await Promise.all([getLoan(user.id, id), getBalances(user.id)]);
+  const [loan, balances, accounts] = await Promise.all([
+    getLoan(user.id, id),
+    getBalances(user.id),
+    getAllAccountNames(user.id),
+  ]);
   if (!loan) notFound();
 
   const today = todayString();
@@ -45,7 +50,7 @@ export default async function LoanDetailPage({ params }: PageProps<"/loans/[id]"
           <div className="min-w-0">
             <p className="row-meta">
               {lent ? "You lent" : "You borrowed"} {formatMoney(loan.amount)}{" "}
-              {lent ? `from ${accountLabel(loan.account)}` : `into ${accountLabel(loan.account)}`} ·{" "}
+              {lent ? `from ${accountLabel(loan.account, accounts)}` : `into ${accountLabel(loan.account, accounts)}`} ·{" "}
               {friendlyDate(loan.startedOn, today)}
             </p>
             <h1 className="page-title">{headline}</h1>
@@ -79,8 +84,8 @@ export default async function LoanDetailPage({ params }: PageProps<"/loans/[id]"
               loan.payments.length ? ` and its ${loan.payments.length} payment(s)` : ""
             }, and undoes what they did to your balances: ${
               lent
-                ? `${formatMoney(loan.amount)} goes back into ${accountLabel(loan.account)}`
-                : `${formatMoney(loan.amount)} is taken back out of ${accountLabel(loan.account)}`
+                ? `${formatMoney(loan.amount)} goes back into ${accountLabel(loan.account, accounts)}`
+                : `${formatMoney(loan.amount)} is taken back out of ${accountLabel(loan.account, accounts)}`
             }${loan.payments.length ? ", and the payments are reversed" : ""}.`}
             confirmLabel="Yes, delete it"
             url={`/api/loans/${loan.id}`}
@@ -119,8 +124,8 @@ export default async function LoanDetailPage({ params }: PageProps<"/loans/[id]"
                 <div className="min-w-0 flex-1">
                   <p className="row-title">
                     {lent
-                      ? `${loan.personName} paid back ${formatMoney(p.amount)} into ${accountLabel(p.account)}`
-                      : `Paid back ${formatMoney(p.amount)} to ${loan.personName} from ${accountLabel(p.account)}`}
+                      ? `${loan.personName} paid back ${formatMoney(p.amount)} into ${accountLabel(p.account, accounts)}`
+                      : `Paid back ${formatMoney(p.amount)} to ${loan.personName} from ${accountLabel(p.account, accounts)}`}
                   </p>
                   <p className="row-meta">
                     {friendlyDate(p.paidOn, today)}
@@ -132,8 +137,8 @@ export default async function LoanDetailPage({ params }: PageProps<"/loans/[id]"
                   title="Delete this payment?"
                   message={
                     lent
-                      ? `This will take ${formatMoney(p.amount)} back out of ${accountLabel(p.account)}, and ${loan.personName} will owe it again.`
-                      : `This will put ${formatMoney(p.amount)} back into ${accountLabel(p.account)}, and you will owe it again.`
+                      ? `This will take ${formatMoney(p.amount)} back out of ${accountLabel(p.account, accounts)}, and ${loan.personName} will owe it again.`
+                      : `This will put ${formatMoney(p.amount)} back into ${accountLabel(p.account, accounts)}, and you will owe it again.`
                   }
                   confirmLabel="Yes, delete it"
                   url={`/api/loans/${loan.id}/payments/${p.id}`}

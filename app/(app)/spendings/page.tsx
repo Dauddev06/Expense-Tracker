@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { listSpendings } from "@/lib/services/spending.service";
+import { getAllAccountNames } from "@/lib/services/savings-account.service";
 import { formatMoney, getCategory } from "@/lib/constants";
 import { accountLabel } from "@/lib/accounts";
 import { chapterLabel, friendlyDate, readChapterParam, todayString } from "@/lib/dates";
@@ -20,7 +21,10 @@ export default async function SpendingsPage({ searchParams }: PageProps<"/spendi
   const chapter = readChapterParam(chapterParam);
   // Server Component: we are ALREADY on the server, so we call the
   // service directly. No fetch, no API route needed for reading.
-  const spendings = await listSpendings(user.id, { chapter });
+  const [spendings, accounts] = await Promise.all([
+    listSpendings(user.id, { chapter }),
+    getAllAccountNames(user.id),
+  ]);
   const total = spendings.reduce((sum, s) => sum + s.amount, 0);
   const today = todayString();
 
@@ -64,7 +68,7 @@ export default async function SpendingsPage({ searchParams }: PageProps<"/spendi
                     <span className="min-w-0 flex-1">
                       <span className="row-title block truncate">{s.title}</span>
                       <span className="row-meta block">
-                        {friendlyDate(s.spentOn, today)} · {cat.label} · {accountLabel(s.account)}
+                        {friendlyDate(s.spentOn, today)} · {cat.label} · {accountLabel(s.account, accounts)}
                       </span>
                     </span>
                     <span className="font-semibold whitespace-nowrap money-out">

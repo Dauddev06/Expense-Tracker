@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { PlannedDTO } from "@/lib/services/expected.service";
-import type { Balances } from "@/lib/accounts";
+import type { AccountInfo, Balances } from "@/lib/accounts";
 import { accountLabel } from "@/lib/accounts";
 import { formatMoney, getCategory } from "@/lib/constants";
 import { friendlyDate, friendlyDateInline } from "@/lib/dates";
@@ -18,17 +18,20 @@ function dueText(dueDate: string, today: string) {
 }
 
 // Expected expenses that are still to pay, each with "Mark as paid".
-// `compact` (dashboard) hides Edit / Delete to keep it simple.
+// `compact` (account pages) hides Edit / Delete to keep it simple.
+// Pass `accounts` to show which account each one is paid from.
 export function PendingList({
   items,
   balances,
   today,
   compact = false,
+  accounts,
 }: {
   items: PlannedDTO[];
   balances: Balances;
   today: string;
   compact?: boolean;
+  accounts?: AccountInfo[];
 }) {
   return (
     <ul className="-my-3 divide-y divide-line-soft">
@@ -54,6 +57,9 @@ export function PendingList({
                     </span>
                   ) : (
                     <span className="row-meta">{due.text}</span>
+                  )}
+                  {accounts && (
+                    <span className="badge bg-tile text-ink-2">From {accountLabel(item.account, accounts)}</span>
                   )}
                   {item.frequency && (
                     <span className="badge bg-tile text-ink-2">
@@ -100,9 +106,11 @@ export function PendingList({
 export function PaidList({
   items,
   today,
+  accounts,
 }: {
   items: PlannedDTO[];
   today: string;
+  accounts: AccountInfo[];
 }) {
   return (
     <ul className="-my-3 divide-y divide-line-soft">
@@ -114,7 +122,7 @@ export function PaidList({
             {item.paid && (
               <p className="row-meta">
                 Paid {formatMoney(item.paid.amount)} from{" "}
-                {accountLabel(item.paid.account)} ·{" "}
+                {accountLabel(item.paid.account, accounts)} ·{" "}
                 {friendlyDate(item.paid.paidOn, today)}
               </p>
             )}
@@ -124,7 +132,7 @@ export function PaidList({
             title="Undo this payment?"
             message={
               item.paid
-                ? `This will put ${formatMoney(item.paid.amount)} back into ${accountLabel(item.paid.account)} and show ${item.title} as still to pay.`
+                ? `This will put ${formatMoney(item.paid.amount)} back into ${accountLabel(item.paid.account, accounts)} and show ${item.title} as still to pay.`
                 : `${item.title} will show as still to pay.`
             }
             confirmLabel="Yes, undo it"

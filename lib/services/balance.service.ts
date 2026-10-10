@@ -1,9 +1,10 @@
 import type { EntityManager } from "typeorm";
 import { getDataSource } from "@/lib/db/data-source";
 import {
-  ACCOUNT_IDS,
   EMPTY_BALANCES,
   accountLabel,
+  isAccount,
+  isBuiltinAccount,
   type AccountId,
   type Balances,
 } from "@/lib/accounts";
@@ -17,7 +18,7 @@ import { FieldError } from "./errors";
 //              - SUM(ledger amounts where fromAccount = A)
 //              - SUM(spendings where account = A)
 //
-// One SQL query does all three sums for all four accounts at once.
+// One SQL query does all three sums for all accounts at once.
 // ---------------------------------------------------------------------------
 const BALANCES_SQL = `
   SELECT account, COALESCE(SUM(delta), 0) AS total
@@ -45,41 +46,53 @@ export async function readBalances(
   );
   const balances: Balances = { ...EMPTY_BALANCES };
   for (const row of rows) {
-    if (ACCOUNT_IDS.includes(row.account as AccountId)) {
-      balances[row.account as AccountId] = Number(row.total);
-    }
+    if (isAccount(row.account)) balances[row.account] = Number(row.total);
   }
   return balances;
 }
 
-export async function getBalances(
-  userId: string,
-): Promise<Balances & { total: number }> {
+export async function getBalances(userId: string): Promise<Balances> {
   const ds = await getDataSource();
-  const balances = await readBalances(ds.manager, userId);
-  const total = ACCOUNT_IDS.reduce((sum, a) => sum + balances[a], 0);
-  return { ...balances, total: Math.round(total * 100) / 100 };
+  return readBalances(ds.manager, userId);
 }
 
-// "Owed to Savings" = everything borrowed from Savings minus what was repaid.
-// (Plain transfers out of Savings do NOT count as borrowing.)
-export async function readOwedToSavings(
+// How much you owe each savings account, e.g. { savings: 5000, sv_k3j9...: 2000 }
+// = everything borrowed from it minus what was paid back to it.
+// (Plain transfers out of a savings account do NOT count as borrowing.)
+// Accounts you owe nothing are left out.
+export type OwedBySavings = Partial<Record<AccountId, number>>;
+
+export async function readOwedBySavings(
   m: EntityManager,
   userId: string,
-): Promise<number> {
-  const rows: { owed: string }[] = await m.query(
-    `SELECT COALESCE(SUM(CASE WHEN type = 'savings_borrow' THEN amount
-                              WHEN type = 'savings_repay' THEN -amount
-                              ELSE 0 END), 0) AS owed
-       FROM ledger_entries WHERE "userId" = $1`,
+): Promise<OwedBySavings> {
+  const rows: { account: string; owed: string }[] = await m.query(
+    `SELECT account, SUM(delta) AS owed FROM (
+        SELECT "fromAccount" AS account, amount AS delta
+          FROM ledger_entries WHERE "userId" = $1 AND type = 'savings_borrow'
+        UNION ALL
+        SELECT "toAccount", -amount
+          FROM ledger_entries WHERE "userId" = $1 AND type = 'savings_repay'
+      ) AS debts
+      GROUP BY account`,
     [userId],
   );
-  return Number(rows[0]?.owed ?? 0);
+  const owed: OwedBySavings = {};
+  for (const row of rows) {
+    const amount = Number(row.owed);
+    if (isAccount(row.account) && amount !== 0) owed[row.account] = amount;
+  }
+  return owed;
 }
 
-export async function getOwedToSavings(userId: string): Promise<number> {
+export async function getOwedBySavings(userId: string): Promise<OwedBySavings> {
   const ds = await getDataSource();
-  return readOwedToSavings(ds.manager, userId);
+  return readOwedBySavings(ds.manager, userId);
+}
+
+export function totalOwed(owed: OwedBySavings): number {
+  const sum = Object.values(owed).reduce((s: number, v) => s + (v ?? 0), 0);
+  return Math.round(sum * 100) / 100;
 }
 
 // Runs `work` inside ONE database transaction, and first takes a lock that
@@ -96,6 +109,16 @@ export async function moneyTransaction<T>(
     await m.query("SELECT pg_advisory_xact_lock(hashtext($1))", [userId]);
     return work(m);
   });
+}
+
+// "Current", or the name the user gave an extra savings account
+async function nameOf(m: EntityManager, userId: string, account: AccountId): Promise<string> {
+  if (isBuiltinAccount(account)) return accountLabel(account);
+  const rows: { name: string }[] = await m.query(
+    `SELECT name FROM savings_accounts WHERE "userId" = $1 AND key = $2`,
+    [userId, account],
+  );
+  return rows[0]?.name ?? "Savings";
 }
 
 export type MoneyCheck = {
@@ -116,9 +139,9 @@ export async function assertNoNegativeBalance(
 ): Promise<void> {
   const balances = await readBalances(m, userId);
   for (const check of checks) {
-    const after = balances[check.account];
+    const after = balances[check.account] ?? 0;
     if (after >= 0) continue;
-    const label = accountLabel(check.account);
+    const label = await nameOf(m, userId, check.account);
     const message =
       check.requested !== undefined
         ? `You only have ${formatMoney(Math.max(after + check.requested, 0))} in ${label}.`
@@ -127,16 +150,28 @@ export async function assertNoNegativeBalance(
   }
 }
 
-// After any change to borrowing/repaying: "owed to Savings" can't go below 0.
+// After any change to borrowing/repaying: what you owe a savings account
+// can't go below 0.
 export async function assertOwedNotNegative(
   m: EntityManager,
   userId: string,
 ): Promise<void> {
-  const owed = await readOwedToSavings(m, userId);
-  if (owed < 0) {
+  const owed = await readOwedBySavings(m, userId);
+  if (Object.values(owed).some((amount) => (amount ?? 0) < 0)) {
     throw new FieldError(
       null,
-      "This can't be done: you would have paid Savings back more than you borrowed. Remove a repayment first.",
+      "This can't be done: you would have paid a savings account back more than you borrowed. Remove a repayment first.",
     );
   }
+}
+
+// Every account the user has must still be at 0 or more (used after a delete,
+// which can take money back out of any account).
+export async function assertAllNonNegative(m: EntityManager, userId: string): Promise<void> {
+  const balances = await readBalances(m, userId);
+  await assertNoNegativeBalance(
+    m,
+    userId,
+    (Object.keys(balances) as AccountId[]).map((account) => ({ account, field: null })),
+  );
 }

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { LogoutButton } from "@/components/logout-button";
 import { Icon, IconTile, type IconName } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
-import { InstallAppButton } from "@/components/install-app-button";
 
 const LINKS: { href: string; label: string; icon: IconName; hint: string }[] = [
   { href: "/income", label: "Income", icon: "banknote", hint: "Salary and other money you earn" },
@@ -30,9 +29,6 @@ export default function MorePage() {
             </Link>
           </li>
         ))}
-        <li>
-          <InstallAppButton variant="row" />
-        </li>
       </ul>
       <LogoutButton />
     </div>

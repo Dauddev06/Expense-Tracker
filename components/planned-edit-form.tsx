@@ -8,11 +8,13 @@ import { applyServerErrors, sendJson } from "@/lib/client-fetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { ChoiceChips } from "@/components/form/choice-chips";
+import { PayFromField } from "@/components/form/pay-from-field";
+import type { SpendingAccount } from "@/lib/accounts";
 import { FormError } from "@/components/form/form-error";
 import { useToday } from "@/components/form/use-today";
 import { chapterEnd } from "@/lib/dates";
 
-type Values = { title: string; amount: number; category: string; dueDate: string };
+type Values = { title: string; amount: number; category: string; account: SpendingAccount; dueDate: string };
 
 type Props = {
   id: string;
@@ -50,7 +52,6 @@ export function PlannedEditForm({ id, repeating, initial }: Props) {
     showToast("Saved");
     const item = data.item as { chapter: string };
     router.push(`/expected?chapter=${item.chapter}`);
-    router.refresh();
   }
 
   return (
@@ -92,6 +93,8 @@ export function PlannedEditForm({ id, repeating, initial }: Props) {
           />
         )}
       />
+
+      <PayFromField control={control} error={errors.account?.message} />
 
       {!repeating && (
         <div>

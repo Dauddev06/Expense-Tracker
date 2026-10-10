@@ -3,10 +3,16 @@ import { getRepo } from "@/lib/db/data-source";
 import type { Loan, LoanDirection, LoanStatus } from "@/lib/db/entities/Loan";
 import type { LoanPayment } from "@/lib/db/entities/LoanPayment";
 import type { LedgerEntry } from "@/lib/db/entities/LedgerEntry";
-import { ACCOUNT_IDS, type SpendingAccount } from "@/lib/accounts";
+import type { SpendingAccount } from "@/lib/accounts";
 import { formatMoney } from "@/lib/constants";
 import type { LoanInput, LoanPaymentInput } from "@/lib/loan-input";
-import { assertNoNegativeBalance, moneyTransaction, type MoneyCheck } from "./balance.service";
+import {
+  assertAllNonNegative,
+  assertNoNegativeBalance,
+  moneyTransaction,
+  type MoneyCheck,
+} from "./balance.service";
+import { assertOwnAccounts } from "./savings-account.service";
 import { FieldError } from "./errors";
 
 export type LoanPaymentDTO = {
@@ -113,6 +119,7 @@ export function summarizeLoans(loans: LoanDTO[]) {
 
 export async function createLoan(userId: string, input: LoanInput): Promise<LoanDTO> {
   return moneyTransaction(userId, async (m) => {
+    await assertOwnAccounts(m, userId, [input.account]);
     const repo = m.getRepository<Loan>("Loan");
     const loan = await repo.save(repo.create({ ...input, userId, status: "open" }));
 
@@ -143,6 +150,7 @@ export async function updateLoan(userId: string, id: string, input: LoanInput): 
   return moneyTransaction(userId, async (m) => {
     const loan = await loadLoan(m, userId, id);
     if (!loan) return null;
+    if (loan.account !== input.account) await assertOwnAccounts(m, userId, [input.account]);
 
     const moneyChanged = loan.amount !== input.amount || loan.account !== input.account;
     if (moneyChanged && loan.payments.length > 0) {
@@ -188,11 +196,7 @@ export async function deleteLoan(userId: string, id: string): Promise<boolean> {
     // ON DELETE CASCADE removes its payments and money movements too
     const result = await m.getRepository<Loan>("Loan").delete({ id, userId });
     if ((result.affected ?? 0) === 0) return false;
-    await assertNoNegativeBalance(
-      m,
-      userId,
-      ACCOUNT_IDS.map((account) => ({ account, field: null })),
-    );
+    await assertAllNonNegative(m, userId);
     return true;
   });
 }
@@ -205,6 +209,7 @@ export async function addLoanPayment(
   return moneyTransaction(userId, async (m) => {
     const loan = await loadLoan(m, userId, loanId);
     if (!loan) return null;
+    await assertOwnAccounts(m, userId, [input.account]);
 
     const outstanding = toDTO(loan).outstanding;
     if (input.amount > outstanding) {

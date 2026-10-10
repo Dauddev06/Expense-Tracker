@@ -1,10 +1,12 @@
 "use client";
 
-import { getAccount, type AccountId, type Balances } from "@/lib/accounts";
+import { balanceOf, getAccount, type AccountId, type Balances } from "@/lib/accounts";
+import { useAccounts } from "@/components/accounts-context";
 import { formatMoney } from "@/lib/constants";
 import { Icon } from "@/components/icons";
 
-const COLUMNS = ["grid-cols-1", "grid-cols-2", "grid-cols-3", "grid-cols-2 sm:grid-cols-4"];
+// 5 or more accounts (extra savings) wrap onto more rows
+const COLUMNS = ["grid-cols-1", "grid-cols-2", "grid-cols-3", "grid-cols-2 sm:grid-cols-4", "grid-cols-2 sm:grid-cols-3"];
 
 type Props = {
   label: string;
@@ -18,12 +20,13 @@ type Props = {
 
 // Big tappable account buttons. Use it inside RHF's <Controller>.
 export function AccountPicker({ label, value, onChange, onBlur, options, balances, error }: Props) {
+  const accounts = useAccounts();
   return (
     <fieldset>
       <legend className="label">{label}</legend>
-      <div className={`grid gap-2 ${COLUMNS[options.length - 1]}`}>
+      <div className={`grid gap-2 ${COLUMNS[Math.min(options.length, COLUMNS.length) - 1]}`}>
         {options.map((option) => {
-          const account = getAccount(option);
+          const account = getAccount(option, accounts);
           const selected = value === option;
           return (
             <button
@@ -34,7 +37,7 @@ export function AccountPicker({ label, value, onChange, onBlur, options, balance
               onBlur={onBlur}
               className={`chip flex-col gap-1 px-1 py-2.5 ${selected ? "chip-selected" : ""}`}
             >
-              <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="flex max-w-full items-center gap-1.5 truncate whitespace-nowrap">
                 <Icon name={account.icon} className="size-4" />
                 {account.label}
               </span>
@@ -44,7 +47,7 @@ export function AccountPicker({ label, value, onChange, onBlur, options, balance
                     selected ? "text-on-brand/80" : "text-muted"
                   }`}
                 >
-                  {formatMoney(balances[option])}
+                  {formatMoney(balanceOf(balances, option))}
                 </span>
               )}
             </button>

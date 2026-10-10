@@ -16,6 +16,7 @@ import { RecurringExpense } from "./entities/RecurringExpense";
 import { PlannedExpense } from "./entities/PlannedExpense";
 import { Loan } from "./entities/Loan";
 import { LoanPayment } from "./entities/LoanPayment";
+import { SavingsAccount } from "./entities/SavingsAccount";
 
 type PostgresOptions = Extract<DataSourceOptions, { type: "postgres" }>;
 
@@ -58,6 +59,7 @@ export function buildDataSourceOptions(): PostgresOptions {
       PlannedExpense,
       Loan,
       LoanPayment,
+      SavingsAccount,
     ],
     // synchronize: TypeORM looks at your entity classes and creates/alters the
     // tables to match. Great while learning, DANGEROUS in production (it can
@@ -104,6 +106,7 @@ export type Entities = {
   PlannedExpense: PlannedExpense;
   Loan: Loan;
   LoanPayment: LoanPayment;
+  SavingsAccount: SavingsAccount;
 };
 
 // Get a repository by entity NAME (a string), not by class.

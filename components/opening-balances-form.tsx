@@ -44,7 +44,6 @@ export function OpeningBalancesForm({ initial, includeSadqa, submitLabel, onSave
       return;
     }
     router.push("/accounts");
-    router.refresh();
   }
 
   return (

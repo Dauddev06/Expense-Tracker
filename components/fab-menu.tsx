@@ -20,7 +20,7 @@ const MAIN_PAGES = ["/home", "/spendings", "/expected", "/income", "/loans", "/a
 export function FabMenu() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const isAccountPage = /^\/accounts\/(current|savings|pocket|sadqa)$/.test(pathname);
+  const isAccountPage = /^\/accounts\/(current|savings|pocket|sadqa|sv_[a-z0-9]+)$/.test(pathname);
   if (!MAIN_PAGES.includes(pathname) && !isAccountPage) return null;
 
   return (

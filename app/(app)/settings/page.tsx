@@ -6,7 +6,6 @@ import { SettingsForm } from "@/components/settings-form";
 import { LogoutButton } from "@/components/logout-button";
 import { Icon, IconTile } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
-import { InstallAppButton } from "@/components/install-app-button";
 import { ThemePicker } from "@/components/theme-picker";
 
 export const metadata = { title: "Settings" };
@@ -64,9 +63,6 @@ export default async function SettingsPage() {
               <span className="row-title flex-1">Manage repeating expenses</span>
               <Icon name="chevron-right" className="size-5 text-faint" />
             </Link>
-          </li>
-          <li>
-            <InstallAppButton variant="row" />
           </li>
         </ul>
       </section>

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { formatMoney } from "@/lib/constants";
-import { SPENDING_ACCOUNTS, type Balances, type SpendingAccount } from "@/lib/accounts";
+import { spendingAccountsOf, type Balances, type SpendingAccount } from "@/lib/accounts";
+import { useAccounts } from "@/components/accounts-context";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
 import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
@@ -15,7 +16,8 @@ import { EffectPreview } from "@/components/form/effect-preview";
 import { FormError } from "@/components/form/form-error";
 import { useToday } from "@/components/form/use-today";
 
-type Item = { id: string; title: string; amount: number };
+// account = where the bill is usually paid from: picked first
+type Item = { id: string; title: string; amount: number; account: SpendingAccount };
 type Values = { amount: number; account: SpendingAccount; paidOn: string };
 
 // "Mark as paid" -> a small pop-up to confirm what it really cost.
@@ -38,6 +40,7 @@ function PayForm({ item, balances, onDone }: { item: Item; balances: Balances; o
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const { today, yesterday } = useToday();
+  const options = spendingAccountsOf(useAccounts());
 
   const {
     register,
@@ -48,7 +51,11 @@ function PayForm({ item, balances, onDone }: { item: Item; balances: Balances; o
     getValues,
     formState: { errors, isSubmitting },
   } = useForm<Values>({
-    defaultValues: { amount: item.amount, account: "current", paidOn: today },
+    defaultValues: {
+      amount: item.amount,
+      account: options.includes(item.account) ? item.account : "current",
+      paidOn: today,
+    },
   });
   const [amount, account, paidOn] = useWatch({ control, name: ["amount", "account", "paidOn"] });
 
@@ -83,7 +90,7 @@ function PayForm({ item, balances, onDone }: { item: Item; balances: Balances; o
             value={field.value}
             onChange={field.onChange}
             onBlur={field.onBlur}
-            options={SPENDING_ACCOUNTS}
+            options={options}
             balances={balances}
             error={errors.account?.message}
           />

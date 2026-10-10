@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Icon } from "@/components/icons";
 
-export function LogoutButton() {
+// compact = icon only (the laptop sidebar)
+export function LogoutButton({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -13,6 +14,14 @@ export function LogoutButton() {
     await fetch("/api/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
+  }
+
+  if (compact) {
+    return (
+      <button onClick={handleLogout} disabled={loading} className="btn-icon" aria-label="Log out" title="Log out">
+        <Icon name="logout" className="size-[18px]" />
+      </button>
+    );
   }
 
   return (

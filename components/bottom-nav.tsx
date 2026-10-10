@@ -7,9 +7,9 @@ import { isActive } from "@/components/nav-links";
 
 const TABS: { href: string; label: string; icon: IconName }[] = [
   { href: "/home", label: "Dashboard", icon: "home" },
+  { href: "/accounts", label: "Accounts", icon: "bank" },
   { href: "/spendings", label: "Spendings", icon: "receipt" },
   { href: "/expected", label: "Expected", icon: "calendar" },
-  { href: "/accounts", label: "Accounts", icon: "bank" },
   { href: "/more", label: "More", icon: "menu" },
 ];
 // Pages reached through "More"

@@ -49,6 +49,7 @@ export default async function EditPlannedPage({ params }: PageProps<"/expected/[
             title: item.title,
             amount: item.amount,
             category: item.category,
+            account: item.account,
             dueDate: item.dueDate,
           }}
         />

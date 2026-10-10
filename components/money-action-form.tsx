@@ -4,9 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { formatMoney } from "@/lib/constants";
-import { accountLabel, type AccountId, type Balances } from "@/lib/accounts";
+import {
+  accountLabel,
+  balanceOf,
+  savingsAccountsOf,
+  spendingAccountsOf,
+  type AccountId,
+  type AccountInfo,
+  type Balances,
+} from "@/lib/accounts";
 import type { MoneyAction } from "@/lib/money-input";
+import type { OwedBySavings } from "@/lib/services/balance.service";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { useAccounts } from "@/components/accounts-context";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { AccountPicker } from "@/components/form/account-picker";
@@ -25,10 +35,9 @@ type Values = {
 
 // Everything that differs between the five actions, in one place.
 type Setup = {
-  fromOptions: readonly AccountId[] | null; // null = fixed / not used
-  toOptions: readonly AccountId[] | null;
-  fixedFrom: AccountId | "";
-  fixedTo: AccountId | "";
+  // Choices for "from" / "to". An empty list = not shown (fixed or unused).
+  fromOptions: AccountId[];
+  toOptions: AccountId[];
   defaultFrom: AccountId | "";
   defaultTo: AccountId | "";
   fromLabel: string;
@@ -38,91 +47,99 @@ type Setup = {
   done: (amount: string, from: string, to: string) => string; // success message
 };
 
-const SETUPS: Record<MoneyAction, Setup> = {
-  deposit: {
-    fromOptions: null,
-    toOptions: ["current", "savings", "pocket"],
-    fixedFrom: "",
-    fixedTo: "",
-    defaultFrom: "",
-    defaultTo: "current",
-    fromLabel: "",
-    toLabel: "Put it into",
-    noteLabel: "Where is it from?",
-    button: "Add money",
-    done: (amount, _from, to) => `${amount} added to ${to}`,
-  },
-  transfer: {
-    fromOptions: ["current", "savings", "pocket"],
-    toOptions: ["current", "savings", "pocket"],
-    fixedFrom: "",
-    fixedTo: "",
-    defaultFrom: "current",
-    defaultTo: "pocket",
-    fromLabel: "Move from",
-    toLabel: "Move to",
-    noteLabel: "Note",
-    button: "Move money",
-    done: (amount, _from, to) => `${amount} moved to ${to}`,
-  },
-  savings_borrow: {
-    fromOptions: null,
-    toOptions: ["current", "pocket"],
-    fixedFrom: "savings",
-    fixedTo: "",
-    defaultFrom: "savings",
-    defaultTo: "current",
-    fromLabel: "",
-    toLabel: "Put it into",
-    noteLabel: "What is it for?",
-    button: "Borrow from Savings",
-    done: (amount, _from, to) => `Borrowed ${amount} from Savings into ${to}`,
-  },
-  savings_repay: {
-    fromOptions: ["current", "pocket"],
-    toOptions: null,
-    fixedFrom: "",
-    fixedTo: "savings",
-    defaultFrom: "current",
-    defaultTo: "savings",
-    fromLabel: "Pay from",
-    toLabel: "",
-    noteLabel: "Note",
-    button: "Repay Savings",
-    done: (amount) => `${amount} paid back to Savings`,
-  },
-  sadqa_given: {
-    fromOptions: null,
-    toOptions: null,
-    fixedFrom: "sadqa",
-    fixedTo: "",
-    defaultFrom: "sadqa",
-    defaultTo: "",
-    fromLabel: "",
-    toLabel: "",
-    noteLabel: "Given to / for",
-    button: "Give Sadqa",
-    done: (amount) => `Gave ${amount} as Sadqa`,
-  },
-};
+const CURRENT_OR_POCKET: AccountId[] = ["current", "pocket"];
 
-// The preset account, if it's allowed for this action
-function pick(options: readonly AccountId[] | null, preset?: string): AccountId | null {
-  return options && options.includes(preset as AccountId) ? (preset as AccountId) : null;
+// Built from the user's accounts, because extra savings accounts differ per user.
+// With ONE choice there is nothing to pick, so the picker is hidden.
+function setupFor(type: MoneyAction, accounts: AccountInfo[], owed: OwedBySavings): Setup {
+  const spendable = spendingAccountsOf(accounts);
+  const savings = savingsAccountsOf(accounts);
+  // Repay: only the savings accounts you actually owe money to
+  const owedSavings = savings.filter((a) => (owed[a] ?? 0) > 0);
+  const hideIfOne = (list: AccountId[]) => (list.length > 1 ? list : []);
+
+  switch (type) {
+    case "deposit":
+      return {
+        fromOptions: [],
+        toOptions: spendable,
+        defaultFrom: "",
+        defaultTo: "current",
+        fromLabel: "",
+        toLabel: "Put it into",
+        noteLabel: "Where is it from?",
+        button: "Add money",
+        done: (amount, _from, to) => `${amount} added to ${to}`,
+      };
+    case "transfer":
+      return {
+        fromOptions: spendable,
+        toOptions: spendable,
+        defaultFrom: "current",
+        defaultTo: "pocket",
+        fromLabel: "Move from",
+        toLabel: "Move to",
+        noteLabel: "Note",
+        button: "Move money",
+        done: (amount, _from, to) => `${amount} moved to ${to}`,
+      };
+    case "savings_borrow":
+      return {
+        fromOptions: hideIfOne(savings),
+        toOptions: CURRENT_OR_POCKET,
+        defaultFrom: "savings",
+        defaultTo: "current",
+        fromLabel: "Borrow from",
+        toLabel: "Put it into",
+        noteLabel: "What is it for?",
+        button: "Borrow",
+        done: (amount, from, to) => `Borrowed ${amount} from ${from} into ${to}`,
+      };
+    case "savings_repay":
+      return {
+        fromOptions: CURRENT_OR_POCKET,
+        toOptions: hideIfOne(owedSavings),
+        defaultFrom: "current",
+        defaultTo: owedSavings[0] ?? "savings",
+        fromLabel: "Pay from",
+        toLabel: "Pay back to",
+        noteLabel: "Note",
+        button: "Pay back",
+        done: (amount, _from, to) => `${amount} paid back to ${to}`,
+      };
+    case "sadqa_given":
+      return {
+        fromOptions: [],
+        toOptions: [],
+        defaultFrom: "sadqa",
+        defaultTo: "",
+        fromLabel: "",
+        toLabel: "",
+        noteLabel: "Given to / for",
+        button: "Give Sadqa",
+        done: (amount) => `Gave ${amount} as Sadqa`,
+      };
+  }
+}
+
+// The preset account, if it's one of the allowed choices
+function pick(options: AccountId[], preset?: string): AccountId | null {
+  return options.includes(preset as AccountId) ? (preset as AccountId) : null;
 }
 
 type Props = {
   type: MoneyAction;
   balances: Balances;
-  owedToSavings: number;
+  owedBySavings: OwedBySavings;
   // Pre-pick accounts, e.g. "Move money" from the Pocket page starts with Pocket.
   // Ignored when the account isn't one of this action's choices.
   presetFrom?: string;
   presetTo?: string;
 };
 
-export function MoneyActionForm({ type, balances, owedToSavings, presetFrom, presetTo }: Props) {
-  const setup = SETUPS[type];
+export function MoneyActionForm({ type, balances, owedBySavings, presetFrom, presetTo }: Props) {
+  const accounts = useAccounts();
+  const setup = setupFor(type, accounts, owedBySavings);
   const router = useRouter();
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -132,7 +149,7 @@ export function MoneyActionForm({ type, balances, owedToSavings, presetFrom, pre
   // "Move money" can't start as Pocket -> Pocket, so pick another "to" then.
   const startFrom = pick(setup.fromOptions, presetFrom) ?? setup.defaultFrom;
   let startTo = pick(setup.toOptions, presetTo) ?? setup.defaultTo;
-  if (startTo && startTo === startFrom && setup.toOptions) {
+  if (startTo && startTo === startFrom && setup.toOptions.length > 0) {
     startTo = setup.toOptions.find((a) => a !== startFrom) ?? startTo;
   }
 
@@ -154,6 +171,7 @@ export function MoneyActionForm({ type, balances, owedToSavings, presetFrom, pre
     },
   });
 
+  const label = (account: AccountId | "") => (account ? accountLabel(account, accounts) : "");
   const [amount, fromAccount, toAccount, occurredOn] = useWatch({
     control,
     name: ["amount", "fromAccount", "toAccount", "occurredOn"],
@@ -171,20 +189,17 @@ export function MoneyActionForm({ type, balances, owedToSavings, presetFrom, pre
       setServerError(applyServerErrors(data, setError, Object.keys(getValues())));
       return;
     }
-    showToast(
-      setup.done(
-        formatMoney(values.amount),
-        values.fromAccount ? accountLabel(values.fromAccount) : "",
-        values.toAccount ? accountLabel(values.toAccount) : "",
-      ),
-    );
+    showToast(setup.done(formatMoney(values.amount), label(values.fromAccount), label(values.toAccount)));
     router.push("/accounts");
-    router.refresh();
   }
 
   // Fill the amount field from a shortcut button ("Give all", "Repay all")
   const fillAmount = (value: number) =>
     setValue("amount", value, { shouldDirty: true, shouldValidate: true });
+
+  // Repay: how much you owe the savings account picked right now
+  const owedNow = type === "savings_repay" && toAccount ? (owedBySavings[toAccount] ?? 0) : 0;
+  const sadqa = balanceOf(balances, "sadqa");
 
   const changes: BalanceChange[] = [];
   if (fromAccount) changes.push({ account: fromAccount, delta: -amount });
@@ -196,12 +211,12 @@ export function MoneyActionForm({ type, balances, owedToSavings, presetFrom, pre
 
       {type === "savings_repay" && (
         <p className="rounded-xl bg-warning-soft px-3 py-2 text-warning">
-          You owe Savings <strong>{formatMoney(owedToSavings)}</strong>.
+          You owe {label(toAccount)} <strong>{formatMoney(owedNow)}</strong>.
         </p>
       )}
       {type === "sadqa_given" && (
         <p className="rounded-xl bg-positive-soft px-3 py-2 text-positive">
-          Sadqa set aside: <strong>{formatMoney(balances.sadqa)}</strong>
+          Sadqa set aside: <strong>{formatMoney(sadqa)}</strong>
         </p>
       )}
 
@@ -212,19 +227,19 @@ export function MoneyActionForm({ type, balances, owedToSavings, presetFrom, pre
         registration={register("amount", amountRules())}
         error={errors.amount?.message}
       >
-        {type === "sadqa_given" && balances.sadqa > 0 && (
-          <button type="button" className="chip mt-2" onClick={() => fillAmount(balances.sadqa)}>
-            Give all ({formatMoney(balances.sadqa)})
+        {type === "sadqa_given" && sadqa > 0 && (
+          <button type="button" className="chip mt-2" onClick={() => fillAmount(sadqa)}>
+            Give all ({formatMoney(sadqa)})
           </button>
         )}
-        {type === "savings_repay" && owedToSavings > 0 && (
-          <button type="button" className="chip mt-2" onClick={() => fillAmount(owedToSavings)}>
-            Repay all ({formatMoney(owedToSavings)})
+        {owedNow > 0 && (
+          <button type="button" className="chip mt-2" onClick={() => fillAmount(owedNow)}>
+            Repay all ({formatMoney(owedNow)})
           </button>
         )}
       </AmountField>
 
-      {setup.fromOptions && (
+      {setup.fromOptions.length > 0 && (
         <Controller
           name="fromAccount"
           control={control}
@@ -235,7 +250,7 @@ export function MoneyActionForm({ type, balances, owedToSavings, presetFrom, pre
               value={field.value}
               onChange={field.onChange}
               onBlur={field.onBlur}
-              options={setup.fromOptions!}
+              options={setup.fromOptions}
               balances={balances}
               error={errors.fromAccount?.message}
             />
@@ -243,7 +258,7 @@ export function MoneyActionForm({ type, balances, owedToSavings, presetFrom, pre
         />
       )}
 
-      {setup.toOptions && (
+      {setup.toOptions.length > 0 && (
         <Controller
           name="toAccount"
           control={control}
@@ -258,7 +273,7 @@ export function MoneyActionForm({ type, balances, owedToSavings, presetFrom, pre
               value={field.value}
               onChange={field.onChange}
               onBlur={field.onBlur}
-              options={setup.toOptions!}
+              options={setup.toOptions}
               balances={balances}
               error={errors.toAccount?.message}
             />

@@ -10,12 +10,15 @@ import { applyServerErrors, sendJson } from "@/lib/client-fetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { ChoiceChips } from "@/components/form/choice-chips";
+import { PayFromField } from "@/components/form/pay-from-field";
+import type { SpendingAccount } from "@/lib/accounts";
 import { FormError } from "@/components/form/form-error";
 
 type Values = {
   title: string;
   amount: number;
   category: string;
+  account: SpendingAccount;
   frequency: Frequency;
   active: "on" | "paused";
 };
@@ -53,7 +56,6 @@ export function RecurringForm({ id, initial }: { id: string; initial: Values }) 
     }
     showToast("Saved");
     router.push("/expected/recurring");
-    router.refresh();
   }
 
   return (
@@ -92,6 +94,8 @@ export function RecurringForm({ id, initial }: { id: string; initial: Values }) 
           <ChoiceChips label="Category" value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={CATEGORIES} />
         )}
       />
+
+      <PayFromField control={control} error={errors.account?.message} />
 
       <Controller
         name="frequency"

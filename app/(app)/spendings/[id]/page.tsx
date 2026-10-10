@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { getSpending } from "@/lib/services/spending.service";
+import { getAllAccountNames } from "@/lib/services/savings-account.service";
 import { isUuid } from "@/lib/spending-input";
 import { formatMoney, getCategory } from "@/lib/constants";
 import { getAccount } from "@/lib/accounts";
@@ -20,11 +21,11 @@ export default async function SpendingDetailPage({
   if (!user) redirect("/login");
 
   if (!isUuid(id)) notFound();
-  const spending = await getSpending(user.id, id);
+  const [spending, accounts] = await Promise.all([getSpending(user.id, id), getAllAccountNames(user.id)]);
   if (!spending) notFound(); // shows app/(app)/spendings/[id]/not-found.tsx
 
   const cat = getCategory(spending.category);
-  const account = getAccount(spending.account);
+  const account = getAccount(spending.account, accounts);
 
   return (
     <div className="mx-auto max-w-xl space-y-3">

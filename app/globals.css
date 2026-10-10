@@ -8,7 +8,7 @@
    Use them like normal Tailwind colours: bg-surface, text-muted, ring-line...
    ========================================================================== */
 @theme inline {
-  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
   /* Backgrounds and borders */
   --color-canvas: var(--canvas); /* the page behind the cards */
@@ -30,8 +30,9 @@
   --color-brand-ink: var(--brand-ink); /* brand-coloured text and icons */
   --color-brand-soft: var(--brand-soft); /* brand-tinted backgrounds */
   --color-on-brand: var(--on-brand); /* text on a brand background */
-  --color-hero-from: var(--hero-from);
-  --color-hero-to: var(--hero-to);
+  --color-hero: var(--hero); /* the dark "highlight" card */
+  --color-hero-ink: var(--hero-ink);
+  --color-hero-line: var(--hero-line); /* boxes inside the dark card */
 
   /* Meaning: money in, money out, warnings, Sadqa */
   --color-positive: var(--positive);
@@ -47,28 +48,40 @@
   --color-sadqa-soft: var(--sadqa-soft);
 
   --color-overlay: var(--overlay); /* dims the page behind pop-ups */
+  --color-sidebar: var(--sidebar); /* the laptop sidebar */
+
+  /* Landing page colour blocks. The same in light and dark mode: their
+     text is always dark (text-zinc-900), so they read well in both. */
+  --color-peach: #fcb184;
+  --color-sun: #f2d36b;
+  --color-mint: #a9d9c5;
+  --color-sand: #f4e7d1;
+  --color-sky: #b9d3f5;
+  --color-lilac: #d4c9f2;
+  --color-rust: #a3330d;
 }
 
 /* ---------- Light theme (the default) ---------- */
 :root {
   color-scheme: light;
-  --canvas: #f4f5f9;
+  --canvas: #ffffff;
   --surface: #ffffff;
-  --surface-2: #f7f8fb;
-  --tile: #eff1f6;
-  --line: #e2e5ee;
-  --line-soft: #eef0f5;
-  --ink: #0e1525;
-  --ink-2: #344054;
-  --muted: #5d6679;
-  --faint: #98a2b3;
+  --surface-2: #f8f9fb;
+  --tile: #f3f4f6;
+  --line: #e4e4e7;
+  --line-soft: #f0f0f2;
+  --ink: #18181b;
+  --ink-2: #3f3f46;
+  --muted: #6b6b76;
+  --faint: #a1a1aa;
   --brand: #4f46e5;
   --brand-strong: #4338ca;
   --brand-ink: #4338ca;
   --brand-soft: #eef0ff;
   --on-brand: #ffffff;
-  --hero-from: #4f46e5;
-  --hero-to: #7c3aed;
+  --hero: #18181b;
+  --hero-ink: #fafafa;
+  --hero-line: rgb(255 255 255 / 0.1);
   --positive: #047857;
   --positive-soft: #e7f7f0;
   --positive-solid: #10b981;
@@ -76,12 +89,13 @@
   --negative-soft: #fef0ef;
   --negative-solid: #dc2626;
   --warning: #8a3d0b;
-  --warning-soft: #fff6e5;
-  --warning-line: #f9d79a;
+  --warning-soft: #fff8e6;
+  --warning-line: #f6dc9b;
   --sadqa: #d0204f;
   --sadqa-soft: #ffeef2;
-  --overlay: rgb(14 21 37 / 0.5);
-  --card-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 6px 20px -8px rgb(16 24 40 / 0.1);
+  --overlay: rgb(24 24 27 / 0.5);
+  --sidebar: #f7f8fc;
+  --card-shadow: none;
 }
 
 /* ---------- Dark theme ----------
@@ -91,23 +105,24 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --canvas: #0a0e17;
-    --surface: #121825;
-    --surface-2: #182031;
-    --tile: #1f2839;
-    --line: #273044;
-    --line-soft: #1d2535;
-    --ink: #edf1f8;
-    --ink-2: #c6cedc;
-    --muted: #96a1b5;
-    --faint: #5e697d;
+    --canvas: #0c0c0f;
+    --surface: #131317;
+    --surface-2: #19191e;
+    --tile: #212127;
+    --line: #2a2a31;
+    --line-soft: #1f1f25;
+    --ink: #f4f4f5;
+    --ink-2: #d4d4d8;
+    --muted: #a1a1aa;
+    --faint: #5b5b64;
     --brand: #4f46e5;
     --brand-strong: #5b54f0;
     --brand-ink: #a9b2ff;
     --brand-soft: rgb(99 102 241 / 0.16);
     --on-brand: #ffffff;
-    --hero-from: #4338ca;
-    --hero-to: #6d28d9;
+    --hero: #1c1c22;
+    --hero-ink: #fafafa;
+    --hero-line: rgb(255 255 255 / 0.08);
     --positive: #4ade9b;
     --positive-soft: rgb(16 185 129 / 0.14);
     --positive-solid: #10b981;
@@ -120,28 +135,30 @@
     --sadqa: #ff7d9d;
     --sadqa-soft: rgb(244 63 94 / 0.15);
     --overlay: rgb(0 0 0 / 0.6);
-    --card-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+    --sidebar: #101014;
+    --card-shadow: none;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #0a0e17;
-  --surface: #121825;
-  --surface-2: #182031;
-  --tile: #1f2839;
-  --line: #273044;
-  --line-soft: #1d2535;
-  --ink: #edf1f8;
-  --ink-2: #c6cedc;
-  --muted: #96a1b5;
-  --faint: #5e697d;
+  --canvas: #0c0c0f;
+  --surface: #131317;
+  --surface-2: #19191e;
+  --tile: #212127;
+  --line: #2a2a31;
+  --line-soft: #1f1f25;
+  --ink: #f4f4f5;
+  --ink-2: #d4d4d8;
+  --muted: #a1a1aa;
+  --faint: #5b5b64;
   --brand: #4f46e5;
   --brand-strong: #5b54f0;
   --brand-ink: #a9b2ff;
   --brand-soft: rgb(99 102 241 / 0.16);
   --on-brand: #ffffff;
-  --hero-from: #4338ca;
-  --hero-to: #6d28d9;
+  --hero: #1c1c22;
+  --hero-ink: #fafafa;
+  --hero-line: rgb(255 255 255 / 0.08);
   --positive: #4ade9b;
   --positive-soft: rgb(16 185 129 / 0.14);
   --positive-solid: #10b981;
@@ -154,7 +171,8 @@
   --sadqa: #ff7d9d;
   --sadqa-soft: rgb(244 63 94 / 0.15);
   --overlay: rgb(0 0 0 / 0.6);
-  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  --sidebar: #101014;
+  --card-shadow: none;
 }
 
 /* ==========================================================================
@@ -184,30 +202,31 @@ body {
 @layer components {
   /* ---------- Layout ---------- */
   .card {
-    @apply rounded-2xl bg-surface p-5 shadow-[var(--card-shadow)] ring-1 ring-line sm:p-6;
+    @apply rounded-xl bg-surface p-5 ring-1 ring-line sm:p-6;
   }
   .card-header {
     @apply mb-4 flex items-center justify-between gap-3;
   }
   .card-title {
-    @apply text-[15px] font-bold text-ink;
+    @apply text-[15px] font-semibold text-ink;
   }
   .page-title {
-    @apply text-2xl font-bold tracking-tight text-ink sm:text-[28px];
+    @apply text-[26px] font-medium tracking-tight text-ink sm:text-[32px];
   }
   .page-subtitle {
     @apply mt-1 text-[15px] text-muted;
   }
   .section-title {
-    @apply mb-3 text-[15px] font-bold text-ink;
+    @apply mb-3 text-[15px] font-semibold text-ink;
   }
 
   /* ---------- Numbers ---------- */
+  /* Small grey caps above a number: "OPENING", "MONEY IN" */
   .stat-label {
-    @apply text-[13px] font-semibold text-muted;
+    @apply text-[11px] font-medium tracking-wider text-muted uppercase;
   }
   .amount {
-    @apply font-bold tracking-tight whitespace-nowrap tabular-nums;
+    @apply font-medium tracking-tight whitespace-nowrap tabular-nums;
   }
   .money-in {
     @apply text-positive tabular-nums;
@@ -221,7 +240,7 @@ body {
     @apply flex min-h-16 items-center gap-3 py-3;
   }
   .row-title {
-    @apply font-semibold text-ink;
+    @apply font-medium text-ink;
   }
   .row-meta {
     @apply text-sm text-muted;
@@ -232,17 +251,17 @@ body {
 
   /* ---------- Forms ---------- */
   .label {
-    @apply mb-1.5 block text-sm font-semibold text-ink-2;
+    @apply mb-1.5 block text-sm font-medium text-ink-2;
   }
   .input {
-    @apply min-h-12 w-full rounded-xl border border-line bg-surface px-3.5 py-2 text-base text-ink transition outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15;
+    @apply min-h-12 w-full rounded-lg border border-line bg-surface px-3.5 py-2 text-base text-ink transition outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15;
   }
   .input-error {
     @apply border-negative focus:border-negative focus:ring-negative/15;
   }
   /* Big amount field with "PKR" shown inside on the left */
   .input-amount {
-    @apply min-h-14 w-full rounded-xl border border-line bg-surface py-3 pr-3 pl-16 text-2xl font-bold text-ink tabular-nums transition outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15;
+    @apply min-h-14 w-full rounded-lg border border-line bg-surface py-3 pr-3 pl-16 text-2xl font-medium text-ink tabular-nums transition outline-none placeholder:text-faint focus:border-brand focus:ring-4 focus:ring-brand/15;
   }
   .error-text {
     @apply mt-1.5 text-sm font-medium text-negative;
@@ -258,34 +277,43 @@ body {
 
   /* ---------- Buttons ---------- */
   .btn-primary {
-    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-on-brand shadow-sm shadow-brand/25 transition select-none hover:bg-brand-strong active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-on-brand shadow-md shadow-brand/25 transition select-none hover:bg-brand-strong active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100;
   }
   .btn-secondary {
-    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-surface px-4 py-2 text-sm font-semibold text-ink-2 ring-1 ring-line transition select-none hover:bg-surface-2 active:scale-[0.98] disabled:opacity-60;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-surface px-4 py-2 text-sm font-medium text-ink ring-1 ring-line transition select-none hover:bg-surface-2 active:scale-[0.98] disabled:opacity-60;
   }
   .btn-danger {
-    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-negative-solid px-4 py-2 text-sm font-semibold text-white transition select-none hover:brightness-110 active:scale-[0.98] disabled:opacity-60;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-negative-solid px-4 py-2 text-sm font-medium text-white transition select-none hover:brightness-110 active:scale-[0.98] disabled:opacity-60;
   }
   /* Same size as a button, but looks like a quiet text link */
   .btn-link {
-    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-brand-ink transition hover:bg-brand-soft;
+    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-brand-ink transition hover:bg-brand-soft;
   }
   /* Square icon-only button (always give it an aria-label) */
   .btn-icon {
-    @apply inline-flex size-11 shrink-0 items-center justify-center rounded-xl text-ink-2 transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-faint disabled:opacity-50 disabled:hover:bg-transparent;
+    @apply inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-2 transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-faint disabled:opacity-50 disabled:hover:bg-transparent;
   }
 
   /* ---------- Choice buttons (accounts, categories, yes/no...) ---------- */
   .chip {
-    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-ink-2 transition select-none hover:bg-surface-2 active:scale-[0.98];
+    @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-ink-2 transition select-none hover:bg-surface-2 active:scale-[0.98];
   }
   .chip-selected {
     @apply border-brand bg-brand text-on-brand shadow-sm shadow-brand/25 hover:bg-brand-strong;
   }
 
-  /* ---------- The big gradient card on the dashboard ---------- */
+  /* ---------- The dark "highlight" card (one per page at most) ---------- */
   .hero {
-    @apply rounded-3xl bg-linear-to-br from-hero-from to-hero-to p-5 text-on-brand shadow-lg shadow-brand/20 sm:p-7;
+    @apply rounded-xl bg-hero p-5 text-hero-ink sm:p-7;
+  }
+  /* A small box inside the dark card: "MONEY IN  +PKR 25,000" */
+  .hero-box {
+    @apply rounded-lg px-3 py-2.5 ring-1 ring-hero-line;
+  }
+
+  /* ---------- Loading placeholders (grey blocks while a page loads) ---------- */
+  .skeleton {
+    @apply animate-pulse rounded-lg bg-tile;
   }
 }
 
@@ -336,5 +364,57 @@ dialog::backdrop {
   .toast {
     animation-duration: 3.5s !important;
     animation-timing-function: steps(1, end);
+  }
+}
+
+/* ==========================================================================
+   SCROLL ANIMATIONS (landing page)
+   Elements with data-reveal start hidden and slide in when they scroll into
+   view (components/landing/scroll-reveal.tsx switches data-visible on/off).
+   Only active once that script has run (.reveal-ready), so without
+   JavaScript everything is simply visible.
+   ========================================================================== */
+.reveal-ready [data-reveal] {
+  opacity: 0;
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal-ready [data-reveal="up"] {
+  transform: translateY(32px);
+}
+.reveal-ready [data-reveal="left"] {
+  transform: translateX(-40px);
+}
+.reveal-ready [data-reveal="right"] {
+  transform: translateX(40px);
+}
+.reveal-ready [data-reveal="zoom"] {
+  transform: scale(0.94) translateY(16px);
+}
+.reveal-ready [data-reveal][data-visible] {
+  opacity: 1;
+  transform: none;
+}
+
+/* The hero is on screen from the start, so it fades up once as the page opens */
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+.hero-in {
+  animation: hero-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+
+/* People who asked their phone/computer for less motion get none */
+@media (prefers-reduced-motion: reduce) {
+  .reveal-ready [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
   }
 }

@@ -1,4 +1,7 @@
-import { accountLabel, type AccountId, type Balances } from "@/lib/accounts";
+"use client";
+
+import { accountLabel, balanceOf, type AccountId, type Balances } from "@/lib/accounts";
+import { useAccounts } from "@/components/accounts-context";
 import { formatMoney } from "@/lib/constants";
 
 export type BalanceChange = { account: AccountId; delta: number };
@@ -12,6 +15,7 @@ export function EffectPreview({
   balances: Balances;
   changes: BalanceChange[];
 }) {
+  const accounts = useAccounts();
   // Add up changes to the same account, and ignore empty/invalid amounts
   const totals = new Map<AccountId, number>();
   for (const { account, delta } of changes) {
@@ -25,11 +29,11 @@ export function EffectPreview({
       <p className="font-medium text-ink-2">After saving:</p>
       <ul className="mt-1 space-y-1">
         {[...totals].map(([account, delta]) => {
-          const before = balances[account];
+          const before = balanceOf(balances, account);
           const after = Math.round((before + delta) * 100) / 100;
           return (
             <li key={account}>
-              {accountLabel(account)}: {formatMoney(before)} →{" "}
+              {accountLabel(account, accounts)}: {formatMoney(before)} →{" "}
               <strong className={after < 0 ? "text-negative" : "text-ink"}>
                 {formatMoney(after)}
               </strong>

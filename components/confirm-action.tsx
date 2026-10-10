@@ -15,6 +15,8 @@ type Props = {
   method?: "DELETE" | "POST";
   successMessage: string;
   redirectTo?: string;
+  // Also reload the layout (needed when the list of accounts changes)
+  refreshLayout?: boolean;
   variant?: "danger" | "secondary" | "link";
 };
 
@@ -29,6 +31,7 @@ export function ConfirmAction({
   method = "DELETE",
   successMessage,
   redirectTo,
+  refreshLayout = false,
   variant = "secondary",
 }: Props) {
   const router = useRouter();
@@ -48,8 +51,9 @@ export function ConfirmAction({
     }
     setOpen(false);
     showToast(successMessage);
+    // Going somewhere else already loads fresh data; staying needs a refresh
     if (redirectTo) router.push(redirectTo);
-    router.refresh();
+    if (!redirectTo || refreshLayout) router.refresh();
   }
 
   const buttonClass =

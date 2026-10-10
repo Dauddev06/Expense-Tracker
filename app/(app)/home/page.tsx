@@ -2,157 +2,110 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { getDashboard } from "@/lib/services/dashboard.service";
+import { chapterOf } from "@/lib/services/account.service";
 import { hasOpeningBalances } from "@/lib/services/ledger.service";
 import { formatMoney, getCategory } from "@/lib/constants";
-import { chapterLabel, readChapterParam, todayString } from "@/lib/dates";
+import { chapterLabel, currentChapter, readChapterParam } from "@/lib/dates";
 import { BalanceCards } from "@/components/balance-cards";
 import { ChapterNav } from "@/components/chapter-nav";
-import { ActivityList } from "@/components/activity-list";
-import { PendingList } from "@/components/planned-list";
-import { Icon, IconTile, type IconName } from "@/components/icons";
+import { Icon, IconTile } from "@/components/icons";
 
 export const metadata = { title: "Dashboard" };
 
-// A row inside "Who owes what": icon, label, amount
-function OweRow({
-  href,
-  icon,
-  tone,
-  label,
-  amount,
-}: {
-  href: string;
-  icon: IconName;
-  tone: string;
-  label: string;
-  amount: number;
-}) {
-  return (
-    <li>
-      <Link href={href} className="list-row -mx-2 rounded-xl px-2 hover:bg-surface-2">
-        <IconTile name={icon} tone={tone} />
-        <span className="row-title flex-1">{label}</span>
-        <span className="amount text-ink">{formatMoney(amount)}</span>
-        <Icon name="chevron-right" className="size-5 text-faint" />
-      </Link>
-    </li>
-  );
-}
-
-// The Dashboard answers three questions, biggest first:
-// How much do I have? What's left to pay this month? Who owes what?
+// The Dashboard is the month at a glance ("chapter"):
+// how the month is going, and each account from the 1st until now.
+// Bills, loans and activity are on each account's own page.
 export default async function DashboardPage({ searchParams }: PageProps<"/home">) {
   const { chapter: chapterParam } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  // Brand-new users first tell us how much money they have
-  if (!(await hasOpeningBalances(user.id))) redirect("/welcome");
-
   const chapter = readChapterParam(chapterParam);
   const month = chapterLabel(chapter);
-  const d = await getDashboard(user.id, chapter);
-  const today = todayString();
+  const isThisMonth = chapter === currentChapter();
+  // Both at the same time: one round trip to the database instead of two
+  const [hasStarted, d] = await Promise.all([hasOpeningBalances(user.id), getDashboard(user.id, chapter)]);
+  // Brand-new users first tell us how much money they have
+  if (!hasStarted) redirect("/welcome");
+
   const biggestCategory = d.spending.byCategory[0]?.total ?? 0;
+  const monthName = month.split(" ")[0]; // "October"
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="page-title">Hi, {user.name}</h1>
+        <div>
+          <p className="row-meta">Hi, {user.name}</p>
+          <h1 className="page-title">Dashboard</h1>
+        </div>
         <ChapterNav chapter={chapter} basePath="/home" />
       </div>
 
-      {/* 1. How much do I have? */}
-      <section aria-labelledby="have-title" className="space-y-3">
-        <div className="hero">
-          <h2 id="have-title" className="text-sm font-semibold text-on-brand/85">
-            You have right now
+      {/* 1. The month in numbers */}
+      <section aria-labelledby="month-title" className="hero">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="month-title" className="text-sm text-hero-ink/70">
+            {month}
           </h2>
-          <p className="amount mt-2 text-[40px] leading-none sm:text-5xl">{formatMoney(d.balances.total)}</p>
-          <p className="mt-2 text-sm text-on-brand/80">in all your accounts together</p>
+          <span className="badge bg-white/10 text-hero-ink/80">{isThisMonth ? "In progress" : "Finished"}</span>
         </div>
-        <BalanceCards balances={d.balances} />
+        <p className="mt-3 text-sm text-hero-ink/70">{d.left >= 0 ? "Left from income" : "Spent more than income"}</p>
+        <p className="amount text-4xl sm:text-5xl">{formatMoney(Math.abs(d.left))}</p>
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="hero-box">
+            <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">Income</p>
+            <p className="amount mt-0.5 text-positive-solid">+{formatMoney(d.income.received)}</p>
+          </div>
+          <div className="hero-box">
+            <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">Spent</p>
+            <p className="amount mt-0.5 text-[#ff8a80]">−{formatMoney(d.spending.total)}</p>
+          </div>
+          <div className="hero-box">
+            <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">Income to come</p>
+            <p className="amount mt-0.5">{formatMoney(Math.max(d.income.expected - d.income.received, 0))}</p>
+          </div>
+          <Link href={`/expected?chapter=${chapter}`} className="hero-box transition hover:bg-white/5">
+            <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">Bills to pay</p>
+            <p className="amount mt-0.5 text-[#fcd34d]">
+              {d.bills.pendingCount} · {formatMoney(d.bills.stillToPay)}
+            </p>
+          </Link>
+        </div>
       </section>
 
-      {/* 2. What's left to pay this month? */}
-      <section aria-labelledby="topay-title" className="card">
-        <div className="card-header items-start">
-          <div>
-            <h2 id="topay-title" className="card-title">
-              Still to pay in {month}
-            </h2>
-            <p className="amount mt-1 text-2xl text-ink">{formatMoney(d.expected.stillToPay)}</p>
-            {d.expected.total > 0 && (
-              <p className="row-meta">
-                {formatMoney(d.expected.paid)} paid of {formatMoney(d.expected.total)}
-              </p>
-            )}
-          </div>
-          <Link href={`/expected?chapter=${chapter}`} className="btn-link -mr-3">
+      {/* 2. Each account: what it started the month with, and what it has now */}
+      <section aria-labelledby="accounts-title" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 id="accounts-title" className="card-title">
+            {isThisMonth ? "Your accounts" : `Your accounts at the end of ${month}`}
+          </h2>
+          <Link href="/accounts" className="btn-link -mr-3">
+            Manage
+          </Link>
+        </div>
+        <BalanceCards
+          chapter={isThisMonth ? undefined : chapter}
+          cards={d.accounts.map((info) => {
+            const ledger = chapterOf(d.ledger, info.value);
+            return { info, balance: ledger.closing, opening: { amount: ledger.opening, month: monthName } };
+          })}
+        />
+      </section>
+
+      {/* 3. Where the money went */}
+      <section aria-labelledby="spent-title" className="card">
+        <div className="card-header">
+          <h2 id="spent-title" className="card-title">
+            Where the money went
+          </h2>
+          <Link href={`/spendings?chapter=${chapter}`} className="btn-link -mr-3">
             See all
           </Link>
         </div>
-        {d.pending.length === 0 ? (
-          d.expected.total > 0 ? (
-            <p className="flex items-center gap-2 text-positive">
-              <Icon name="check-circle" />
-              Everything for {month} is paid.
-            </p>
-          ) : (
-            <p className="text-ink-2">
-              Nothing planned yet.{" "}
-              <Link href={`/expected/new?chapter=${chapter}`} className="font-semibold text-brand-ink underline">
-                Add an expected expense
-              </Link>{" "}
-              like rent or bills.
-            </p>
-          )
+        {d.spending.byCategory.length === 0 ? (
+          <p className="text-muted">Nothing spent in {month} yet. Add a spending with the + button.</p>
         ) : (
-          <PendingList items={d.pending.slice(0, 3)} balances={d.balances} today={today} compact />
-        )}
-      </section>
-
-      {/* 3. Who owes what? */}
-      <section aria-labelledby="owe-title" className="card">
-        <h2 id="owe-title" className="card-title mb-2">
-          Who owes what
-        </h2>
-        <ul className="divide-y divide-line-soft">
-          <OweRow href="/loans" icon="arrow-in" tone="bg-positive-soft text-positive" label="People owe me" amount={d.loans.owedToMe} />
-          <OweRow href="/loans" icon="arrow-out" tone="bg-negative-soft text-negative" label="I owe people" amount={d.loans.iOwe} />
-          <OweRow href="/accounts/savings" icon="piggy" tone="bg-warning-soft text-warning" label="I owe Savings" amount={d.owedToSavings} />
-        </ul>
-      </section>
-
-      {/* 4. The month in three numbers + where the money went */}
-      <section aria-labelledby="month-title" className="card">
-        <h2 id="month-title" className="card-title mb-4">
-          {month}
-        </h2>
-        <div className="grid grid-cols-3 gap-2 rounded-xl bg-surface-2 p-3 sm:p-4">
-          <div>
-            <p className="stat-label">Income</p>
-            <p className="amount mt-1 text-[15px] text-positive sm:text-lg">{formatMoney(d.income.received)}</p>
-          </div>
-          <div>
-            <p className="stat-label">Spent</p>
-            <p className="amount mt-1 text-[15px] text-negative sm:text-lg">{formatMoney(d.spending.total)}</p>
-          </div>
-          <div>
-            <p className="stat-label">{d.left >= 0 ? "Left" : "Overspent"}</p>
-            <p className={`amount mt-1 text-[15px] sm:text-lg ${d.left >= 0 ? "text-ink" : "text-negative"}`}>
-              {formatMoney(Math.abs(d.left))}
-            </p>
-          </div>
-        </div>
-        {d.income.expected > d.income.received && (
-          <p className="row-meta mt-2">
-            {formatMoney(d.income.expected - d.income.received)} of income not received yet.
-          </p>
-        )}
-
-        {d.spending.byCategory.length > 0 && (
-          <ul className="mt-5 space-y-3">
+          <ul className="space-y-3">
             {d.spending.byCategory.map((c) => {
               const cat = getCategory(c.category);
               return (
@@ -160,8 +113,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/home">
                   <IconTile name={cat.icon} tone={cat.tile} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="flex justify-between text-sm">
-                      <span className="font-semibold text-ink">{cat.label}</span>
-                      <span className="font-semibold text-ink tabular-nums">{formatMoney(c.total)}</span>
+                      <span className="font-medium text-ink">{cat.label}</span>
+                      <span className="font-medium text-ink tabular-nums">{formatMoney(c.total)}</span>
                     </div>
                     <div className="mt-1.5 h-2 rounded-full bg-tile" aria-hidden="true">
                       <div
@@ -177,22 +130,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/home">
         )}
       </section>
 
-      {/* 5. Recent activity */}
-      <section aria-labelledby="recent-title" className="card">
-        <div className="card-header">
-          <h2 id="recent-title" className="card-title">
-            Recent activity
-          </h2>
-          <Link href="/accounts" className="btn-link -mr-3">
-            See all
+      {d.bills.pendingCount === 0 && d.bills.total === 0 && (
+        <p className="flex items-center gap-2 text-sm text-muted">
+          <Icon name="calendar" className="size-4" />
+          No bills planned for {month}.{" "}
+          <Link href={`/expected/new?chapter=${chapter}`} className="font-medium text-brand-ink underline">
+            Add one
           </Link>
-        </div>
-        {d.recent.length === 0 ? (
-          <p className="text-muted">Nothing yet. Add a spending with the + button.</p>
-        ) : (
-          <ActivityList items={d.recent.slice(0, 5)} today={today} />
-        )}
-      </section>
+        </p>
+      )}
     </div>
   );
 }
