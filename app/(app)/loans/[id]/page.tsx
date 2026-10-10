@@ -51,7 +51,12 @@ export default async function LoanDetailPage({ params }: PageProps<"/loans/[id]"
           <div className="min-w-0">
             <p className="row-meta">
               {lent ? "You lent" : "You borrowed"} {formatMoney(loan.amount)}{" "}
-              {lent ? `from ${accountLabel(loan.account, accounts)}` : `into ${accountLabel(loan.account, accounts)}`} ·{" "}
+              {loan.alreadyExisted
+                ? "before you started using the app"
+                : lent
+                  ? `from ${accountLabel(loan.account, accounts)}`
+                  : `into ${accountLabel(loan.account, accounts)}`}{" "}
+              ·{" "}
               {friendlyDate(loan.startedOn, today)}
             </p>
             <h1 className="page-title">{headline}</h1>
@@ -83,11 +88,18 @@ export default async function LoanDetailPage({ params }: PageProps<"/loans/[id]"
             title="Delete this loan?"
             message={`This removes the loan${
               loan.payments.length ? ` and its ${loan.payments.length} payment(s)` : ""
-            }, and undoes what they did to your balances: ${
-              lent
-                ? `${formatMoney(loan.amount)} goes back into ${accountLabel(loan.account, accounts)}`
-                : `${formatMoney(loan.amount)} is taken back out of ${accountLabel(loan.account, accounts)}`
-            }${loan.payments.length ? ", and the payments are reversed" : ""}.`}
+            }${
+              loan.alreadyExisted
+                ? // An old loan never moved money: only its payments did
+                  loan.payments.length
+                  ? ", and reverses what the payments did to your balances."
+                  : ". Your balances don't change."
+                : `, and undoes what they did to your balances: ${
+                    lent
+                      ? `${formatMoney(loan.amount)} goes back into ${accountLabel(loan.account, accounts)}`
+                      : `${formatMoney(loan.amount)} is taken back out of ${accountLabel(loan.account, accounts)}`
+                  }${loan.payments.length ? ", and the payments are reversed" : ""}.`
+            }`}
             confirmLabel="Yes, delete it"
             url={`/api/loans/${loan.id}`}
             successMessage="Loan deleted"

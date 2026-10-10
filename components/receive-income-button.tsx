@@ -1,26 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { formatMoney } from "@/lib/constants";
-import type { Balances } from "@/lib/accounts";
+import { accountLabel, savingsAccountsOf, type AccountId, type Balances } from "@/lib/accounts";
+import type { SettingsDTO } from "@/lib/services/settings.service";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { useAccounts } from "@/components/accounts-context";
 import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
+import { AccountPicker } from "@/components/form/account-picker";
 import { DateField } from "@/components/form/date-field";
 import { EffectPreview } from "@/components/form/effect-preview";
 import { FormError } from "@/components/form/form-error";
+import { PercentField, percentRules } from "@/components/form/percent-field";
 import { useToday } from "@/components/form/use-today";
 
 type Props = {
   income: { id: string; title: string; amount: number };
-  sadqaPercent: number;
+  settings: SettingsDTO; // Sadqa % + the usual savings % and account
   balances: Balances;
 };
 
-// "Mark as received" -> a small pop-up asking WHEN it arrived.
-export function ReceiveIncomeButton({ income, sadqaPercent, balances }: Props) {
+type Values = { receivedOn: string; savingsPercent: number; savingsAccount: string };
+
+const partOf = (amount: number, percent: number) =>
+  Number.isFinite(percent) ? Math.round(amount * percent) / 100 : 0;
+
+// "Mark as received" -> a small pop-up: when did it arrive, and how much of it
+// to save (filled in from Settings, can be changed for this income only).
+export function ReceiveIncomeButton({ income, settings, balances }: Props) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -28,18 +38,20 @@ export function ReceiveIncomeButton({ income, sadqaPercent, balances }: Props) {
         Mark as received
       </button>
       <Dialog open={open} onClose={() => setOpen(false)} title={`${income.title} received`}>
-        <ReceiveForm income={income} sadqaPercent={sadqaPercent} balances={balances} onDone={() => setOpen(false)} />
+        <ReceiveForm income={income} settings={settings} balances={balances} onDone={() => setOpen(false)} />
       </Dialog>
     </>
   );
 }
 
-function ReceiveForm({ income, sadqaPercent, balances, onDone }: Props & { onDone: () => void }) {
+function ReceiveForm({ income, settings, balances, onDone }: Props & { onDone: () => void }) {
   const router = useRouter();
   const showToast = useToast();
+  const accounts = useAccounts();
+  const savingsOptions = savingsAccountsOf(accounts);
   const [serverError, setServerError] = useState<string | null>(null);
   const { today, yesterday } = useToday();
-  const sadqa = Math.round(income.amount * sadqaPercent) / 100;
+  const sadqa = partOf(income.amount, settings.sadqaPercent);
 
   const {
     register,
@@ -49,19 +61,33 @@ function ReceiveForm({ income, sadqaPercent, balances, onDone }: Props & { onDon
     setError,
     getValues,
     formState: { errors, isSubmitting },
-  } = useForm<{ receivedOn: string }>({ defaultValues: { receivedOn: today } });
-  const receivedOn = useWatch({ control, name: "receivedOn" });
+  } = useForm<Values>({
+    defaultValues: {
+      receivedOn: today,
+      savingsPercent: settings.savingsPercent,
+      savingsAccount: savingsOptions.includes(settings.savingsAccount as never) ? settings.savingsAccount : "savings",
+    },
+  });
+  const [receivedOn, savingsPercent, savingsAccount] = useWatch({
+    control,
+    name: ["receivedOn", "savingsPercent", "savingsAccount"],
+  });
+  const saved = partOf(income.amount, savingsPercent);
 
-  async function onSubmit(values: { receivedOn: string }) {
+  async function onSubmit(values: Values) {
     setServerError(null);
     const { ok, data } = await sendJson(`/api/income/${income.id}/receive`, "POST", values);
     if (!ok) {
       setServerError(applyServerErrors(data, setError, Object.keys(getValues())));
       return;
     }
-    showToast(`Received ${formatMoney(income.amount)} into Current`);
+    showToast(
+      saved > 0
+        ? `Received ${formatMoney(income.amount)}, ${formatMoney(saved)} saved into ${accountLabel(values.savingsAccount, accounts)}`
+        : `Received ${formatMoney(income.amount)} into Current`,
+    );
     onDone();
-    router.refresh();
+    startTransition(() => router.refresh());
   }
 
   return (
@@ -69,7 +95,7 @@ function ReceiveForm({ income, sadqaPercent, balances, onDone }: Props & { onDon
       <FormError message={serverError} />
       <p className="text-ink-2">
         {formatMoney(income.amount)} goes into Current.
-        {sadqa > 0 && ` ${formatMoney(sadqa)} (${sadqaPercent}%) of it is set aside for Sadqa.`}
+        {sadqa > 0 && ` ${formatMoney(sadqa)} (${settings.sadqaPercent}%) of it is set aside for Sadqa.`}
       </p>
       <DateField
         id="receivedOn"
@@ -81,11 +107,40 @@ function ReceiveForm({ income, sadqaPercent, balances, onDone }: Props & { onDon
         yesterday={yesterday}
         onPick={(date) => setValue("receivedOn", date, { shouldValidate: true })}
       />
+
+      <PercentField
+        id="savingsPercent"
+        label="How much of it to save?"
+        registration={register("savingsPercent", percentRules)}
+        error={errors.savingsPercent?.message}
+        value={savingsPercent}
+        quickPicks={[0, 5, 10, 20]}
+        onPick={(v) => setValue("savingsPercent", v, { shouldValidate: true })}
+      />
+      {savingsPercent > 0 && (
+        <Controller
+          name="savingsAccount"
+          control={control}
+          render={({ field }) => (
+            <AccountPicker
+              label="Save it into"
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              options={savingsOptions}
+              balances={balances}
+              error={errors.savingsAccount?.message}
+            />
+          )}
+        />
+      )}
+
       <EffectPreview
         balances={balances}
         changes={[
-          { account: "current", delta: income.amount - sadqa },
+          { account: "current", delta: income.amount - sadqa - saved },
           { account: "sadqa", delta: sadqa },
+          { account: savingsAccount as AccountId, delta: saved },
         ]}
       />
       <button type="submit" disabled={isSubmitting} className="btn-primary w-full">

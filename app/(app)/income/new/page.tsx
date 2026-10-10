@@ -22,6 +22,7 @@ export default async function NewIncomePage({ searchParams }: PageProps<"/income
           chapter={chapter}
           balances={balances}
           sadqaPercent={settings.sadqaPercent}
+          savings={{ percent: settings.savingsPercent, account: settings.savingsAccount }}
           submitLabel="Add income"
         />
     </FormCard>

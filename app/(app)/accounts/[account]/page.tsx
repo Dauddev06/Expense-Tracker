@@ -8,7 +8,7 @@ import { listPendingForAccount } from "@/lib/services/expected.service";
 import { listLoans } from "@/lib/services/loan.service";
 import { getUserAccounts } from "@/lib/services/savings-account.service";
 import { getSettings } from "@/lib/services/settings.service";
-import { isAccount, isExtraSavings, type AccountInfo } from "@/lib/accounts";
+import { isAccount, type AccountInfo } from "@/lib/accounts";
 import { formatMoney } from "@/lib/constants";
 import {
   chapterEnd,
@@ -139,7 +139,8 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
           <h1 className="page-title">{info.label}</h1>
           <p className="page-subtitle">{info.description}</p>
         </div>
-        {isExtraSavings(account) && (
+        {/* Every savings account can be renamed (the built-in one too) */}
+        {info.kind === "savings" && (
           <Link href={`/accounts/${account}/edit`} className="btn-secondary">
             <Icon name="pencil" className="size-4" />
             Edit
@@ -242,7 +243,7 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
                   key={loan.id}
                   avatar={<PersonAvatar name={loan.personName} tone="bg-negative-soft text-negative" />}
                   title={`You owe ${loan.personName}`}
-                  meta={`Borrowed into ${info.label} · ${formatMoney(loan.paid)} of ${formatMoney(loan.amount)} paid`}
+                  meta={`${loan.alreadyExisted ? "From before the app" : `Borrowed into ${info.label}`} · ${formatMoney(loan.paid)} of ${formatMoney(loan.amount)} paid`}
                   amount={loan.outstanding}
                   tone="out"
                   action={{ href: `/loans/${loan.id}`, label: "Pay back" }}
@@ -253,7 +254,7 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
                   key={loan.id}
                   avatar={<PersonAvatar name={loan.personName} tone="bg-positive-soft text-positive" />}
                   title={`${loan.personName} owes you`}
-                  meta={`Lent from ${info.label} · ${formatMoney(loan.paid)} of ${formatMoney(loan.amount)} back`}
+                  meta={`${loan.alreadyExisted ? "From before the app" : `Lent from ${info.label}`} · ${formatMoney(loan.paid)} of ${formatMoney(loan.amount)} back`}
                   amount={loan.outstanding}
                   tone="in"
                   action={{ href: `/loans/${loan.id}`, label: "Got money back" }}

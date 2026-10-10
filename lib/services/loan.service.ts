@@ -32,6 +32,7 @@ export type LoanDTO = {
   startedOn: string;
   note: string | null;
   status: LoanStatus;
+  alreadyExisted: boolean; // from before using the app: added without moving money
   paid: number; // paid back so far
   outstanding: number; // amount - paid
   payments: LoanPaymentDTO[]; // newest first
@@ -55,6 +56,7 @@ function toDTO(loan: Loan): LoanDTO {
     startedOn: loan.startedOn,
     note: loan.note,
     status: loan.status,
+    alreadyExisted: loan.alreadyExisted,
     paid,
     outstanding: round(loan.amount - paid),
     payments: payments.map((p) => ({
@@ -84,6 +86,18 @@ function loanEntryFields(loan: Loan) {
   return loan.direction === "given"
     ? { type: "loan_given" as const, fromAccount: loan.account, toAccount: null }
     : { type: "loan_taken" as const, fromAccount: null, toAccount: loan.account };
+}
+
+// The money movement of the loan itself (lent out / borrowed in)
+async function writeLoanEntry(m: EntityManager, loan: Loan) {
+  await m.getRepository<LedgerEntry>("LedgerEntry").insert({
+    ...loanEntryFields(loan),
+    userId: loan.userId,
+    amount: loan.amount,
+    occurredOn: loan.startedOn,
+    note: null,
+    loanId: loan.id,
+  });
 }
 
 // "settled" once everything is paid back, "open" otherwise
@@ -126,18 +140,14 @@ export async function createLoan(userId: string, input: LoanInput): Promise<Loan
     await assertOwnAccounts(m, userId, [input.account]);
     const repo = m.getRepository<Loan>("Loan");
     const loan = await repo.save(repo.create({ ...input, userId, status: "open" }));
+    // An old loan (from before using the app) only gets remembered:
+    // its money moved before the starting balances, so nothing moves now.
+    if (loan.alreadyExisted) {
+      loan.payments = [];
+      return toDTO(loan);
+    }
 
-    const ledger = m.getRepository<LedgerEntry>("LedgerEntry");
-    await ledger.save(
-      ledger.create({
-        ...loanEntryFields(loan),
-        userId,
-        amount: loan.amount,
-        occurredOn: loan.startedOn,
-        note: null,
-        loanId: loan.id,
-      }),
-    );
+    await writeLoanEntry(m, loan);
 
     // Lending money out needs enough money in that account
     if (loan.direction === "given") {
@@ -156,28 +166,33 @@ export async function updateLoan(userId: string, id: string, input: LoanInput): 
     if (!loan) return null;
     if (loan.account !== input.account) await assertOwnAccounts(m, userId, [input.account]);
 
-    const moneyChanged = loan.amount !== input.amount || loan.account !== input.account;
-    if (moneyChanged && loan.payments.length > 0) {
+    const amountChanged = loan.amount !== input.amount || loan.account !== input.account;
+    if (amountChanged && loan.payments.length > 0) {
       throw new FieldError(
         "amount",
         "The amount and account can't change once a payment was made. Delete the payments first.",
       );
     }
 
+    const moneyChanged = amountChanged || loan.alreadyExisted !== input.alreadyExisted;
     const oldAccount = loan.account;
     loan.personName = input.personName;
     loan.amount = input.amount;
     loan.account = input.account;
     loan.startedOn = input.startedOn;
     loan.note = input.note;
+    loan.alreadyExisted = input.alreadyExisted;
     // (direction never changes after the loan is created)
     await m.getRepository<Loan>("Loan").save(loan);
 
-    await m.getRepository<LedgerEntry>("LedgerEntry").update(
-      // the loan's own row (not its payments' rows)
-      { loanId: loan.id, userId, type: In(["loan_given", "loan_taken"]) },
-      { ...loanEntryFields(loan), amount: loan.amount, occurredOn: loan.startedOn },
-    );
+    // Replace the loan's own money movement (not its payments'). An old loan
+    // has none, so switching between "new" and "old" just adds or removes it.
+    await m.getRepository<LedgerEntry>("LedgerEntry").delete({
+      loanId: loan.id,
+      userId,
+      type: In(["loan_given", "loan_taken"]),
+    });
+    if (!loan.alreadyExisted) await writeLoanEntry(m, loan);
     await refreshStatus(m, loan);
 
     if (moneyChanged) {
@@ -185,7 +200,7 @@ export async function updateLoan(userId: string, id: string, input: LoanInput): 
         {
           account: loan.account,
           field: "amount",
-          requested: loan.direction === "given" ? loan.amount : undefined,
+          requested: loan.direction === "given" && !loan.alreadyExisted ? loan.amount : undefined,
         },
       ];
       if (oldAccount !== loan.account) checks.push({ account: oldAccount, field: "account" });

@@ -157,3 +157,20 @@ export function parseSavingsAccountInput(body: unknown): ParseResult<SavingsAcco
 
   return finish(fieldErrors, { name, startingAmount });
 }
+
+// Editing a savings account: a new name, and (extra accounts only) a new
+// starting amount. Leaving startingAmount out keeps it as it is.
+export type SavingsAccountUpdate = { name: string; startingAmount: number | null };
+
+export function parseSavingsAccountUpdate(body: unknown): ParseResult<SavingsAccountUpdate> {
+  const b = asObject(body);
+  const parsed = parseSavingsAccountInput(b);
+  if (!parsed.success) return parsed;
+  return {
+    success: true,
+    data: {
+      name: parsed.data.name,
+      startingAmount: b.startingAmount === undefined || b.startingAmount === null ? null : parsed.data.startingAmount,
+    },
+  };
+}

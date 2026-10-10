@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { cache } from "react";
-import { In, type EntityManager } from "typeorm";
-import { getRepo } from "@/lib/db/data-source";
+import { In, Not, type EntityManager } from "typeorm";
+import { getDataSource, getRepo } from "@/lib/db/data-source";
 import type { SavingsAccount } from "@/lib/db/entities/SavingsAccount";
 import type { LedgerEntry } from "@/lib/db/entities/LedgerEntry";
 import {
@@ -14,11 +14,11 @@ import {
 } from "@/lib/accounts";
 import { formatMoney } from "@/lib/constants";
 import { todayString } from "@/lib/dates";
-import type { SavingsAccountInput } from "@/lib/money-input";
+import type { SavingsAccountInput, SavingsAccountUpdate } from "@/lib/money-input";
 import { moneyTransaction, readBalances, readOwedBySavings } from "./balance.service";
 import { FieldError } from "./errors";
 
-export type SavingsAccountDTO = { key: ExtraSavingsId; name: string };
+export type SavingsAccountDTO = { key: ExtraSavingsId | "savings"; name: string };
 
 // "sv_" + 10 random letters/digits, e.g. "sv_k3j9x2ab7q"
 function newKey(): ExtraSavingsId {
@@ -35,18 +35,24 @@ async function listRows(userId: string, includeClosed: boolean): Promise<Savings
   });
 }
 
+// A row with key "savings" isn't an extra account: it only holds the new
+// name the user gave the built-in Savings.
+function toAccounts(rows: SavingsAccount[]): AccountInfo[] {
+  const renamed = rows.find((r) => r.key === "savings");
+  const extra = rows.filter((r) => r.key !== "savings").map((r) => ({ key: r.key, name: r.name }));
+  return buildAccounts(extra, renamed?.name);
+}
+
 // The user's open accounts, ready for the UI (Current, Savings, extra savings,
 // Pocket, Sadqa). cache() = asked for many times while rendering ONE page,
 // the database is only asked once.
 export const getUserAccounts = cache(async (userId: string): Promise<AccountInfo[]> => {
-  const rows = await listRows(userId, false);
-  return buildAccounts(rows.map((r) => ({ key: r.key, name: r.name })));
+  return toAccounts(await listRows(userId, false));
 });
 
 // Includes closed accounts: for showing names in old activity.
 export const getAllAccountNames = cache(async (userId: string): Promise<AccountInfo[]> => {
-  const rows = await listRows(userId, true);
-  return buildAccounts(rows.map((r) => ({ key: r.key, name: r.name })));
+  return toAccounts(await listRows(userId, true));
 });
 
 // Throws when one of the accounts isn't the user's (or is closed).
@@ -71,7 +77,7 @@ export async function createSavingsAccount(
 ): Promise<SavingsAccountDTO> {
   return moneyTransaction(userId, async (m) => {
     const repo = m.getRepository<SavingsAccount>("SavingsAccount");
-    const count = await repo.count({ where: { userId, closed: false } });
+    const count = await repo.count({ where: { userId, closed: false, key: Not("savings") } });
     if (count >= 10) throw new FieldError("name", "You can have up to 10 extra savings accounts.");
 
     const saved = await repo.save(repo.create({ userId, key: newKey(), name: input.name, closed: false }));
@@ -94,16 +100,67 @@ export async function createSavingsAccount(
   });
 }
 
-export async function renameSavingsAccount(
+// What an extra savings account started with (its "opening" movements)
+export async function getStartingAmount(userId: string, key: string): Promise<number> {
+  const ds = await getDataSource();
+  const rows: { total: string }[] = await ds.query(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries
+      WHERE "userId" = $1 AND type = 'opening' AND "toAccount" = $2`,
+    [userId, key],
+  );
+  return Number(rows[0]?.total ?? 0);
+}
+
+// Edit a savings account:
+// - name: any savings account, the built-in "savings" too
+// - startingAmount: only extra ones (the built-in Savings changes it on the
+//   "Change starting balances" page, with Current and Pocket). null = keep it.
+export async function updateSavingsAccount(
   userId: string,
   key: string,
-  name: string,
+  input: SavingsAccountUpdate,
 ): Promise<SavingsAccountDTO | null> {
-  const repo = await getRepo("SavingsAccount");
-  // One UPDATE; "affected" tells us whether the account was found
-  const result = await repo.update({ userId, key, closed: false }, { name });
-  if (!result.affected) return null;
-  return { key: key as ExtraSavingsId, name };
+  return moneyTransaction(userId, async (m) => {
+    if (key === "savings") {
+      // The built-in one has no row of its own: store just its new name
+      await m.query(
+        `INSERT INTO savings_accounts ("userId", key, name) VALUES ($1, 'savings', $2)
+         ON CONFLICT ("userId", key) DO UPDATE SET name = EXCLUDED.name`,
+        [userId, input.name],
+      );
+      return { key: "savings", name: input.name };
+    }
+
+    const repo = m.getRepository<SavingsAccount>("SavingsAccount");
+    const result = await repo.update({ userId, key, closed: false }, { name: input.name });
+    if (!result.affected) return null;
+
+    if (input.startingAmount !== null) {
+      // Replace its starting amount (like the starting balances of Current etc.)
+      const ledger = m.getRepository<LedgerEntry>("LedgerEntry");
+      await ledger.delete({ userId, type: "opening", toAccount: key as ExtraSavingsId });
+      if (input.startingAmount > 0) {
+        await ledger.insert({
+          userId,
+          type: "opening",
+          amount: input.startingAmount,
+          fromAccount: null,
+          toAccount: key as ExtraSavingsId,
+          occurredOn: todayString(),
+          note: null,
+        });
+      }
+      // A lower amount must still cover what already went out of it
+      const balance = (await readBalances(m, userId))[key as ExtraSavingsId] ?? 0;
+      if (balance < 0) {
+        throw new FieldError(
+          "startingAmount",
+          `More than this has already gone out of ${input.name}. It must start with at least ${formatMoney(input.startingAmount - balance)}.`,
+        );
+      }
+    }
+    return { key: key as ExtraSavingsId, name: input.name };
+  });
 }
 
 // Closing only works on an empty account that nobody owes money to.
@@ -128,6 +185,11 @@ export async function closeSavingsAccount(userId: string, key: string): Promise<
       throw new FieldError(null, `You still owe ${label} ${formatMoney(owed)}. Pay it back first.`);
     }
     await repo.update({ id: row.id }, { closed: true });
+    // If income was being saved into it, save into the built-in Savings instead
+    await m.query(
+      `UPDATE user_settings SET "savingsAccount" = 'savings' WHERE "userId" = $1 AND "savingsAccount" = $2`,
+      [userId, key],
+    );
     return true;
   });
 }

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
-import { listIncomes } from "@/lib/services/income.service";
+import { listIncomes, type IncomeDTO } from "@/lib/services/income.service";
+import { getAllAccountNames } from "@/lib/services/savings-account.service";
+import { accountLabel } from "@/lib/accounts";
 import { getSettings } from "@/lib/services/settings.service";
 import { getBalances } from "@/lib/services/balance.service";
 import { formatMoney } from "@/lib/constants";
@@ -23,10 +25,11 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
   if (!user) redirect("/login");
 
   const chapter = readChapterParam(chapterParam);
-  const [incomes, settings, balances] = await Promise.all([
+  const [incomes, settings, balances, accounts] = await Promise.all([
     listIncomes(user.id, chapter),
     getSettings(user.id),
     getBalances(user.id),
+    getAllAccountNames(user.id),
   ]);
   const today = todayString();
   const expected = incomes.reduce((sum, i) => sum + i.amount, 0);
@@ -41,10 +44,14 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
   };
 
   // What undoing a received income does, in plain words
-  const takeBack = (amount: number, sadqa: number) =>
-    `This will take ${formatMoney(amount - sadqa)} back out of Current${
-      sadqa > 0 ? ` and ${formatMoney(sadqa)} out of Sadqa` : ""
-    }.`;
+  const takeBack = (income: IncomeDTO) => {
+    const parts = [`${formatMoney(income.amount - income.sadqaAmount - income.savingsAmount)} back out of Current`];
+    if (income.sadqaAmount > 0) parts.push(`${formatMoney(income.sadqaAmount)} out of Sadqa`);
+    if (income.savingsAmount > 0 && income.savingsAccountApplied) {
+      parts.push(`${formatMoney(income.savingsAmount)} out of ${accountLabel(income.savingsAccountApplied, accounts)}`);
+    }
+    return `This will take ${parts.join(", ").replace(/, ([^,]*)$/, " and $1")}.`;
+  };
 
   return (
     <div className="space-y-6">
@@ -96,6 +103,13 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
                           {income.sadqaAmount > 0 && (
                             <span className="row-meta">{formatMoney(income.sadqaAmount)} set aside for Sadqa</span>
                           )}
+                          {income.savingsAmount > 0 && income.savingsAccountApplied && (
+                            <span className="badge bg-positive-soft text-positive">
+                              <Icon name="piggy" className="size-3.5" />
+                              {formatMoney(income.savingsAmount)} saved into{" "}
+                              {accountLabel(income.savingsAccountApplied, accounts)}
+                            </span>
+                          )}
                         </>
                       ) : (
                         <span className="badge bg-warning-soft text-warning">
@@ -109,14 +123,14 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
                         <ConfirmAction
                           label="Not received"
                           title="Mark as not received?"
-                          message={takeBack(income.amount, income.sadqaAmount)}
+                          message={takeBack(income)}
                           confirmLabel="Yes, not received"
                           method="DELETE"
                           url={`/api/income/${income.id}/receive`}
                           successMessage="Marked as not received"
                         />
                       ) : (
-                        <ReceiveIncomeButton income={income} sadqaPercent={settings.sadqaPercent} balances={balances} />
+                        <ReceiveIncomeButton income={income} settings={settings} balances={balances} />
                       )}
                       <Link href={`/income/${income.id}/edit`} className="btn-secondary">
                         Edit
@@ -127,7 +141,7 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
                         title={`Delete ${income.title}?`}
                         message={
                           income.status === "received"
-                            ? takeBack(income.amount, income.sadqaAmount)
+                            ? takeBack(income)
                             : "It hasn't been received, so your balances won't change."
                         }
                         confirmLabel="Yes, delete it"

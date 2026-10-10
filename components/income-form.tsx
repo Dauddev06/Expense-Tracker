@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { formatMoney } from "@/lib/constants";
-import type { Balances } from "@/lib/accounts";
+import { accountLabel, balanceOf, type AccountId, type Balances } from "@/lib/accounts";
+import { useAccounts } from "@/components/accounts-context";
 import { chapterLabel } from "@/lib/dates";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
 import { usePrefetch } from "@/components/form/use-prefetch";
@@ -27,6 +28,9 @@ type Props = {
   chapter: string;
   balances: Balances;
   sadqaPercent: number; // the % that applies when it is received
+  // The savings part that applies when it is received (from Settings, or
+  // what this income was received with). Left out = nothing is saved.
+  savings?: { percent: number; account: string };
   incomeId?: string; // set when editing
   initial?: { title: string; amount: number; received: boolean; receivedOn: string | null };
   submitLabel: string;
@@ -35,7 +39,10 @@ type Props = {
 
 const sadqaFor = (amount: number, percent: number) => Math.round(amount * percent) / 100;
 
-export function IncomeForm({ chapter, balances, sadqaPercent, incomeId, initial, submitLabel, onSaved }: Props) {
+export function IncomeForm({ chapter, balances, sadqaPercent, savings, incomeId, initial, submitLabel, onSaved }: Props) {
+  const accounts = useAccounts();
+  const savingsPercent = savings?.percent ?? 0;
+  const savingsAccount = (savings?.account ?? "savings") as AccountId;
   const router = useRouter();
   usePrefetch(`/income?chapter=${chapter}`); // where "Save" goes
   const showToast = useToast();
@@ -69,10 +76,13 @@ export function IncomeForm({ chapter, balances, sadqaPercent, incomeId, initial,
   const startBalances = { ...balances };
   if (initial?.received) {
     const oldSadqa = sadqaFor(initial.amount, sadqaPercent);
-    startBalances.current -= initial.amount - oldSadqa;
+    const oldSaved = sadqaFor(initial.amount, savingsPercent);
+    startBalances.current -= initial.amount - oldSadqa - oldSaved;
     startBalances.sadqa -= oldSadqa;
+    startBalances[savingsAccount] = balanceOf(startBalances, savingsAccount) - oldSaved;
   }
   const sadqa = Number.isFinite(amount) ? sadqaFor(amount, sadqaPercent) : 0;
+  const saved = Number.isFinite(amount) ? sadqaFor(amount, savingsPercent) : 0;
 
   async function onSubmit(values: Values) {
     setServerError(null);
@@ -163,16 +173,19 @@ export function IncomeForm({ chapter, balances, sadqaPercent, incomeId, initial,
             yesterday={yesterday}
             onPick={(date) => setValue("receivedOn", date, { shouldValidate: true })}
           />
-          {sadqa > 0 && (
+          {(sadqa > 0 || saved > 0) && (
             <p className="rounded-xl bg-positive-soft px-3 py-2 text-positive">
-              {formatMoney(sadqa)} ({sadqaPercent}%) will be set aside for Sadqa.
+              {sadqa > 0 && `${formatMoney(sadqa)} (${sadqaPercent}%) will be set aside for Sadqa. `}
+              {saved > 0 &&
+                `${formatMoney(saved)} (${savingsPercent}%) will be saved into ${accountLabel(savingsAccount, accounts)}.`}
             </p>
           )}
           <EffectPreview
             balances={startBalances}
             changes={[
-              { account: "current", delta: amount - sadqa },
+              { account: "current", delta: amount - sadqa - saved },
               { account: "sadqa", delta: sadqa },
+              { account: savingsAccount, delta: saved },
             ]}
           />
         </>

@@ -52,6 +52,20 @@ export class Income {
   })
   sadqaPercentApplied!: number | null;
 
+  // The savings % and account used when it was received (same idea:
+  // changing Settings later never rewrites the past). null = nothing saved.
+  @Column({
+    type: "numeric",
+    precision: 5,
+    scale: 2,
+    nullable: true,
+    transformer: nullableMoneyTransformer,
+  })
+  savingsPercentApplied!: number | null;
+
+  @Column({ type: "varchar", length: 20, nullable: true })
+  savingsAccountApplied!: string | null;
+
   @Column({ type: "uuid" })
   userId!: string;
 
