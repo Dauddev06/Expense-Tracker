@@ -28,6 +28,12 @@ export default async function EditIncomePage({ params }: PageProps<"/income/[id]
           balances={balances}
           // A received income keeps the Sadqa % it was received with
           sadqaPercent={income.sadqaPercentApplied ?? settings.sadqaPercent}
+          // …and the savings it was received with (Settings if not received yet)
+          savings={
+            income.status === "received"
+              ? { percent: income.savingsPercentApplied ?? 0, account: income.savingsAccountApplied ?? "savings" }
+              : { percent: settings.savingsPercent, account: settings.savingsAccount }
+          }
           initial={{
             title: income.title,
             amount: income.amount,

@@ -12,7 +12,8 @@ import {
 
 const notFound = () => notFoundResponse("Income");
 
-// POST /api/income/:id/receive { receivedOn } -> mark as received
+// POST /api/income/:id/receive { receivedOn, savingsPercent?, savingsAccount? }
+// -> mark as received (and save part of it, if a savings % applies)
 export async function POST(request: Request, ctx: RouteContext<"/api/income/[id]/receive">) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
@@ -25,7 +26,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/income/[id]
   if (!parsed.success) return invalidResponse(parsed.fieldErrors);
 
   try {
-    const income = await receiveIncome(user.id, id, parsed.data.receivedOn);
+    const income = await receiveIncome(user.id, id, parsed.data);
     return income ? NextResponse.json({ income }) : notFound();
   } catch (error) {
     return fieldErrorResponse(error);

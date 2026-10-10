@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import {
   closeSavingsAccount,
-  renameSavingsAccount,
+  updateSavingsAccount,
 } from "@/lib/services/savings-account.service";
-import { isExtraSavings } from "@/lib/accounts";
-import { parseSavingsAccountInput } from "@/lib/money-input";
+import { isExtraSavings, isSavingsAccount } from "@/lib/accounts";
+import { parseSavingsAccountUpdate } from "@/lib/money-input";
 import {
   fieldErrorResponse,
   invalidResponse,
@@ -13,20 +13,25 @@ import {
   unauthorized,
 } from "@/lib/api-responses";
 
-// PATCH /api/savings-accounts/:key -> rename it. Body: { name }
+// PATCH /api/savings-accounts/:key -> edit it. Body: { name, startingAmount? }
+// :key is an extra account ("sv_...") or "savings" (the built-in one: name only)
 export async function PATCH(request: Request, ctx: RouteContext<"/api/savings-accounts/[key]">) {
   const user = await getCurrentUser();
   if (!user) return unauthorized();
 
   const { key } = await ctx.params;
-  if (!isExtraSavings(key)) return notFoundResponse("Account");
+  if (!isSavingsAccount(key)) return notFoundResponse("Account");
 
   const body = await request.json().catch(() => null);
-  const parsed = parseSavingsAccountInput(body);
+  const parsed = parseSavingsAccountUpdate(body);
   if (!parsed.success) return invalidResponse(parsed.fieldErrors);
 
-  const account = await renameSavingsAccount(user.id, key, parsed.data.name);
-  return account ? NextResponse.json({ account }) : notFoundResponse("Account");
+  try {
+    const account = await updateSavingsAccount(user.id, key, parsed.data);
+    return account ? NextResponse.json({ account }) : notFoundResponse("Account");
+  } catch (error) {
+    return fieldErrorResponse(error);
+  }
 }
 
 // DELETE /api/savings-accounts/:key -> close it (only when it's empty)

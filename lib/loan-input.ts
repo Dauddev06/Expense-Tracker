@@ -21,6 +21,7 @@ export type LoanInput = {
   account: SpendingAccount;
   startedOn: string;
   note: string | null;
+  alreadyExisted: boolean; // from before using the app: moves no money now
 };
 
 // Used for creating AND editing. (When editing, the service keeps the
@@ -48,6 +49,8 @@ export function parseLoanInput(body: unknown): ParseResult<LoanInput> {
     account: b.account as SpendingAccount,
     startedOn: b.startedOn as string,
     note: readOptionalText(b.note),
+    // Older clients don't send it: a normal loan that moves money
+    alreadyExisted: b.alreadyExisted === true,
   });
 }
 

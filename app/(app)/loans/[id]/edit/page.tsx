@@ -28,6 +28,7 @@ export default async function EditLoanPage({ params }: PageProps<"/loans/[id]/ed
             account: loan.account,
             startedOn: loan.startedOn,
             note: loan.note ?? "",
+            when: loan.alreadyExisted ? "old" : "new",
           }}
         />
     </FormCard>

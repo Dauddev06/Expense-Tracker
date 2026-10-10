@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { getSettings } from "@/lib/services/settings.service";
 import { SettingsForm } from "@/components/settings-form";
+import { SavingsSettingsForm } from "@/components/savings-settings-form";
 import { LogoutButton } from "@/components/logout-button";
 import { Icon, IconTile } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
@@ -34,6 +35,20 @@ export default async function SettingsPage() {
         <SettingsForm sadqaPercent={settings.sadqaPercent} submitLabel="Save Sadqa %" />
       </section>
 
+      <section className="card" aria-labelledby="save-title">
+        <div className="flex items-center gap-3">
+          <IconTile name="piggy" tone="bg-positive-soft text-positive" />
+          <h2 id="save-title" className="card-title">
+            Save from every income
+          </h2>
+        </div>
+        <p className="mt-3 mb-5 text-muted">
+          Each time you mark income as received, this part of it moves from Current into the
+          savings account you pick. You can change it for one income when you mark it as received.
+        </p>
+        <SavingsSettingsForm savingsPercent={settings.savingsPercent} savingsAccount={settings.savingsAccount} />
+      </section>
+
       <section className="card" aria-labelledby="look-title">
         <div className="flex items-center gap-3">
           <IconTile name="sun" tone="bg-brand-soft text-brand-ink" />
@@ -54,6 +69,13 @@ export default async function SettingsPage() {
             <Link href="/accounts/opening" className="list-row -mx-2 rounded-xl px-2 hover:bg-surface-2">
               <IconTile name="pencil" tone="bg-brand-soft text-brand-ink" />
               <span className="row-title flex-1">Change starting balances</span>
+              <Icon name="chevron-right" className="size-5 text-faint" />
+            </Link>
+          </li>
+          <li>
+            <Link href="/accounts/new" className="list-row -mx-2 rounded-xl px-2 hover:bg-surface-2">
+              <IconTile name="piggy" tone="bg-brand-soft text-brand-ink" />
+              <span className="row-title flex-1">Add a savings account</span>
               <Icon name="chevron-right" className="size-5 text-faint" />
             </Link>
           </li>

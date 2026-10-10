@@ -113,12 +113,13 @@ export async function moneyTransaction<T>(
 
 // "Current", or the name the user gave an extra savings account
 async function nameOf(m: EntityManager, userId: string, account: AccountId): Promise<string> {
-  if (isBuiltinAccount(account)) return accountLabel(account);
+  // (the built-in Savings can be renamed, so it is looked up too)
+  if (isBuiltinAccount(account) && account !== "savings") return accountLabel(account);
   const rows: { name: string }[] = await m.query(
     `SELECT name FROM savings_accounts WHERE "userId" = $1 AND key = $2`,
     [userId, account],
   );
-  return rows[0]?.name ?? "Savings";
+  return rows[0]?.name ?? accountLabel(account);
 }
 
 export type MoneyCheck = {

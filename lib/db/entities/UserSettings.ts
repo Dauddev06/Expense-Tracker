@@ -31,6 +31,20 @@ export class UserSettings {
   })
   sadqaPercent!: number;
 
+  // e.g. 10 means 10% of every income is moved into `savingsAccount`
+  @Column({
+    type: "numeric",
+    precision: 5,
+    scale: 2,
+    default: 0,
+    transformer: moneyTransformer,
+  })
+  savingsPercent!: number;
+
+  // Which savings account it goes to: "savings" or an extra one ("sv_...")
+  @Column({ type: "varchar", length: 20, default: "savings" })
+  savingsAccount!: string;
+
   @UpdateDateColumn({ type: "timestamptz" })
   updatedAt!: Date;
 }

@@ -80,15 +80,16 @@ export type AccountInfo = {
 
 const SAVINGS_INFO = ACCOUNTS[1];
 
-// The user's accounts in display order: Current, Savings (+ extra ones), Pocket, Sadqa
-export function buildAccounts(extra: { key: string; name: string }[]): AccountInfo[] {
+// The user's accounts in display order: Current, Savings (+ extra ones), Pocket, Sadqa.
+// `savingsName`: the user renamed the built-in Savings (e.g. "Emergency fund").
+export function buildAccounts(extra: { key: string; name: string }[], savingsName?: string): AccountInfo[] {
   const builtin = (value: BuiltinAccountId): AccountInfo => {
     const a = ACCOUNTS.find((x) => x.value === value)!;
     return { ...a, kind: a.value };
   };
   return [
     builtin("current"),
-    builtin("savings"),
+    { ...builtin("savings"), label: savingsName ?? SAVINGS_INFO.label },
     ...extra.map(
       (e): AccountInfo => ({
         value: e.key as ExtraSavingsId,
@@ -162,6 +163,7 @@ export const LEDGER_TYPES = [
   "savings_repay", // paid a savings account back
   "income", // income received into Current
   "sadqa_allocation", // part of income set aside: Current -> Sadqa
+  "savings_allocation", // part of income saved: Current -> a savings account
   "sadqa_given", // Sadqa given away
   "loan_given", // I lent money to someone
   "loan_taken", // I borrowed money from someone

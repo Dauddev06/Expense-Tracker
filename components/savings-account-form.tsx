@@ -14,15 +14,18 @@ type Values = { name: string; startingAmount: number };
 
 type Props =
   | { mode: "create" }
-  | { mode: "rename"; accountKey: string; name: string };
+  // startingAmount: null for the built-in Savings (changed with the other
+  // starting balances instead)
+  | { mode: "edit"; accountKey: string; name: string; startingAmount: number | null };
 
-// Open another savings account (name + what's in it now), or rename one.
+// Open another savings account (name + what's in it now), or edit one.
 export function SavingsAccountForm(props: Props) {
   const router = useRouter();
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const creating = props.mode === "create";
-  usePrefetch(creating ? null : `/accounts/${props.accountKey}`); // where "Save" goes when renaming
+  usePrefetch(creating ? null : `/accounts/${props.accountKey}`); // where "Save" goes when editing
+  const hasStart = creating || props.startingAmount !== null;
 
   const {
     register,
@@ -33,7 +36,7 @@ export function SavingsAccountForm(props: Props) {
   } = useForm<Values>({
     defaultValues: {
       name: creating ? "" : props.name,
-      startingAmount: 0,
+      startingAmount: creating ? 0 : (props.startingAmount ?? 0),
     },
   });
 
@@ -41,7 +44,10 @@ export function SavingsAccountForm(props: Props) {
     setServerError(null);
     const { ok, data } = creating
       ? await sendJson("/api/savings-accounts", "POST", values)
-      : await sendJson(`/api/savings-accounts/${props.accountKey}`, "PATCH", { name: values.name });
+      : await sendJson(`/api/savings-accounts/${props.accountKey}`, "PATCH", {
+          name: values.name,
+          ...(hasStart ? { startingAmount: values.startingAmount } : {}),
+        });
     if (!ok) {
       setServerError(applyServerErrors(data, setError, Object.keys(getValues())));
       return;
@@ -81,15 +87,17 @@ export function SavingsAccountForm(props: Props) {
         {errors.name && <p className="error-text">{errors.name.message}</p>}
       </div>
 
-      {creating && (
+      {hasStart && (
         <AmountField
           id="startingAmount"
-          label="How much is in it right now?"
+          label={creating ? "How much is in it right now?" : "How much did it start with?"}
           registration={register("startingAmount", amountRules({ allowZero: true }))}
           error={errors.startingAmount?.message}
         >
           <p className="hint-text">
-            0 is fine. To fill it from another account later, use Move money.
+            {creating
+              ? "0 is fine. To fill it from another account later, use Move money."
+              : "The amount it had when you opened it here. Money moved in or out since then stays as it is."}
           </p>
         </AmountField>
       )}
@@ -100,7 +108,7 @@ export function SavingsAccountForm(props: Props) {
           disabled={isSubmitting || (!creating && !isDirty)}
           className="btn-primary flex-1 sm:flex-none"
         >
-          {isSubmitting ? "Saving..." : creating ? "Open account" : "Save name"}
+          {isSubmitting ? "Saving..." : creating ? "Open account" : "Save changes"}
         </button>
         <button type="button" onClick={() => router.back()} className="btn-secondary">
           Cancel

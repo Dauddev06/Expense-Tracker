@@ -51,6 +51,13 @@ export class Loan {
   @Column({ type: "varchar", length: 10, default: "open" })
   status!: LoanStatus;
 
+  // true = the loan is OLDER than the user's use of the app (e.g. Ali has owed
+  // you 5,000 since last year). It's only remembered: adding it moves no
+  // money, because that money left / arrived before the starting balances.
+  // Payments made later DO move money, like for any loan.
+  @Column({ type: "boolean", default: false })
+  alreadyExisted!: boolean;
+
   @Index()
   @Column({ type: "uuid" })
   userId!: string;

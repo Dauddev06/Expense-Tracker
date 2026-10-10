@@ -48,6 +48,8 @@ function sentenceFor(e: LedgerEntry, accounts: AccountInfo[]): string {
       return `Received ${amount} ${e.income?.title ?? "income"} into ${to}`;
     case "sadqa_allocation":
       return `${amount} set aside for Sadqa`;
+    case "savings_allocation":
+      return `${amount} of ${e.income?.title ?? "income"} saved into ${to}`;
     case "sadqa_given":
       return `Gave ${amount} as Sadqa`;
     case "loan_given":
