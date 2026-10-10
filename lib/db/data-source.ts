@@ -1,5 +1,11 @@
 import "reflect-metadata";
 import { DataSource, type DataSourceOptions, type Repository } from "typeorm";
+// TypeORM normally finds the Postgres driver ("pg") by itself, with a hidden
+// require() that build tools can't see. Vercel only uploads the files it can
+// SEE being imported, so without this line the deployed app would fail with
+// "Cannot find module 'pg'". Importing it here and handing it to TypeORM
+// (driver: pg, below) makes sure it is always included.
+import pg from "pg";
 import { User } from "./entities/Users";
 import { Session } from "./entities/Session";
 import { Spending } from "./entities/Spendings";
@@ -30,6 +36,7 @@ export function buildDataSourceOptions(): PostgresOptions {
 
   return {
     type: "postgres",
+    driver: pg, // see the import at the top
     ...connection,
     // Hosted Postgres (Neon) only accepts encrypted connections.
     ssl: process.env.DB_SSL === "true",
