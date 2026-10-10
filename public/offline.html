@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#ffffff" />
     <meta name="color-scheme" content="light dark" />
-    <title>You're offline · Hisaab</title>
+    <title>You're offline · Pocket Manager</title>
     <style>
       body {
         margin: 0;
@@ -16,7 +16,13 @@
         padding: 16px;
         background: #f4f5f9;
         color: #0e1525;
-        font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-family:
+          "Plus Jakarta Sans",
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
       }
       .card {
         max-width: 360px;
@@ -24,12 +30,25 @@
         background: #fff;
         border-radius: 16px;
         padding: 32px 24px;
-        box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.1);
+        box-shadow:
+          0 1px 2px rgb(15 23 42 / 0.04),
+          0 8px 24px -12px rgb(15 23 42 / 0.1);
         outline: 1px solid #e2e5ee;
       }
-      img { width: 64px; height: 64px; border-radius: 16px; }
-      h1 { font-size: 22px; margin: 16px 0 8px; }
-      p { color: #5d6679; line-height: 1.5; margin: 0 0 20px; }
+      img {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+      }
+      h1 {
+        font-size: 22px;
+        margin: 16px 0 8px;
+      }
+      p {
+        color: #5d6679;
+        line-height: 1.5;
+        margin: 0 0 20px;
+      }
       button {
         min-height: 44px;
         padding: 0 20px;
@@ -41,12 +60,24 @@
         font-weight: 600;
         cursor: pointer;
       }
-      button:focus-visible { outline: 3px solid #4338ca; outline-offset: 2px; }
+      button:focus-visible {
+        outline: 3px solid #4338ca;
+        outline-offset: 2px;
+      }
       /* Same dark colours as the app */
       @media (prefers-color-scheme: dark) {
-        body { background: #0a0e17; color: #edf1f8; }
-        .card { background: #121825; outline-color: #273044; box-shadow: none; }
-        p { color: #96a1b5; }
+        body {
+          background: #0a0e17;
+          color: #edf1f8;
+        }
+        .card {
+          background: #121825;
+          outline-color: #273044;
+          box-shadow: none;
+        }
+        p {
+          color: #96a1b5;
+        }
       }
     </style>
   </head>
@@ -54,7 +85,10 @@
     <div class="card">
       <img src="/icons/icon-192.png" alt="" />
       <h1>You're offline</h1>
-      <p>Hisaab needs the internet to show your balances. Check your connection and try again.</p>
+      <p>
+        Pocket Manager needs the internet to show your balances. Check your
+        connection and try again.
+      </p>
       <button type="button" onclick="location.reload()">Try again</button>
     </div>
   </body>

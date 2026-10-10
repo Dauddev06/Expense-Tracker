@@ -55,8 +55,13 @@ type Platform = "ios" | "android" | "desktop";
 function readSnapshot(): string {
   const ua = navigator.userAgent;
   const isIOS =
-    /iPad|iPhone|iPod/.test(ua) || (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
-  const platform: Platform = isIOS ? "ios" : /Android/i.test(ua) ? "android" : "desktop";
+    /iPad|iPhone|iPod/.test(ua) ||
+    (ua.includes("Macintosh") && navigator.maxTouchPoints > 1);
+  const platform: Platform = isIOS
+    ? "ios"
+    : /Android/i.test(ua)
+      ? "android"
+      : "desktop";
   // Already opened as an installed app? Then there is nothing to install.
   const standalone =
     window.matchMedia("(display-mode: standalone)").matches ||
@@ -69,24 +74,103 @@ const serverSnapshot = () => "desktop|false|false|false";
 
 const STEPS: Record<Platform, { icon: IconName; text: React.ReactNode }[]> = {
   ios: [
-    { icon: "share", text: <>Open this site in Safari and tap the <strong>Share</strong> button at the bottom.</> },
-    { icon: "plus-square", text: <>Scroll down and tap <strong>Add to Home Screen</strong>.</> },
-    { icon: "check-circle", text: <>Tap <strong>Add</strong>. Hisaab now sits on your home screen.</> },
+    {
+      icon: "share",
+      text: (
+        <>
+          Open this site in Safari and tap the <strong>Share</strong> button at
+          the bottom.
+        </>
+      ),
+    },
+    {
+      icon: "plus-square",
+      text: (
+        <>
+          Scroll down and tap <strong>Add to Home Screen</strong>.
+        </>
+      ),
+    },
+    {
+      icon: "check-circle",
+      text: (
+        <>
+          Tap <strong>Add</strong>. Pocket Manager now sits on your home screen.
+        </>
+      ),
+    },
   ],
   android: [
-    { icon: "dots-vertical", text: <>Tap the <strong>menu</strong> button (three dots) at the top right of Chrome.</> },
-    { icon: "download", text: <>Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.</> },
-    { icon: "check-circle", text: <>Tap <strong>Install</strong>. Hisaab now sits on your home screen.</> },
+    {
+      icon: "dots-vertical",
+      text: (
+        <>
+          Tap the <strong>menu</strong> button (three dots) at the top right of
+          Chrome.
+        </>
+      ),
+    },
+    {
+      icon: "download",
+      text: (
+        <>
+          Tap <strong>Install app</strong> or{" "}
+          <strong>Add to Home screen</strong>.
+        </>
+      ),
+    },
+    {
+      icon: "check-circle",
+      text: (
+        <>
+          Tap <strong>Install</strong>. Pocket Manager now sits on your home
+          screen.
+        </>
+      ),
+    },
   ],
   desktop: [
-    { icon: "download", text: <>In Chrome or Edge, click the <strong>install</strong> icon at the right end of the address bar.</> },
-    { icon: "dots-vertical", text: <>Or open the browser menu and choose <strong>Install Hisaab</strong>. In Safari on a Mac: File, then <strong>Add to Dock</strong>.</> },
-    { icon: "smartphone", text: <>On your phone, open this website and tap <strong>Install the app</strong>.</> },
+    {
+      icon: "download",
+      text: (
+        <>
+          In Chrome or Edge, click the <strong>install</strong> icon at the
+          right end of the address bar.
+        </>
+      ),
+    },
+    {
+      icon: "dots-vertical",
+      text: (
+        <>
+          Or open the browser menu and choose{" "}
+          <strong>Install Pocket Manager</strong>. In Safari on a Mac: File,
+          then <strong>Add to Dock</strong>.
+        </>
+      ),
+    },
+    {
+      icon: "smartphone",
+      text: (
+        <>
+          On your phone, open this website and tap{" "}
+          <strong>Install the app</strong>.
+        </>
+      ),
+    },
   ],
 };
 
-export function InstallAppButton({ variant = "card" }: { variant?: "card" | "row" }) {
-  const snapshot = useSyncExternalStore(subscribe, readSnapshot, serverSnapshot);
+export function InstallAppButton({
+  variant = "card",
+}: {
+  variant?: "card" | "row";
+}) {
+  const snapshot = useSyncExternalStore(
+    subscribe,
+    readSnapshot,
+    serverSnapshot,
+  );
   const [platform, standalone, , installed] = snapshot.split("|") as [
     Platform,
     string,
@@ -110,7 +194,11 @@ export function InstallAppButton({ variant = "card" }: { variant?: "card" | "row
   }
 
   const help = (
-    <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} title="Add Hisaab to your home screen">
+    <Dialog
+      open={helpOpen}
+      onClose={() => setHelpOpen(false)}
+      title="Add Pocket Manager to your home screen"
+    >
       <ol className="space-y-4">
         {STEPS[platform].map((step, index) => (
           <li key={index} className="flex items-start gap-3">
@@ -119,12 +207,19 @@ export function InstallAppButton({ variant = "card" }: { variant?: "card" | "row
             </span>
             <span className="flex-1 pt-1 text-ink-2">
               {step.text}
-              <Icon name={step.icon} className="ml-1.5 inline size-4 align-[-2px] text-brand-ink" />
+              <Icon
+                name={step.icon}
+                className="ml-1.5 inline size-4 align-[-2px] text-brand-ink"
+              />
             </span>
           </li>
         ))}
       </ol>
-      <button type="button" className="btn-primary mt-6 w-full" onClick={() => setHelpOpen(false)}>
+      <button
+        type="button"
+        className="btn-primary mt-6 w-full"
+        onClick={() => setHelpOpen(false)}
+      >
         Got it
       </button>
     </Dialog>
@@ -134,7 +229,7 @@ export function InstallAppButton({ variant = "card" }: { variant?: "card" | "row
     return (
       <p className="flex items-center gap-2 rounded-xl bg-positive-soft px-3 py-3 text-positive">
         <Icon name="check-circle" />
-        Installed. You&apos;ll find Hisaab on your home screen.
+        Installed. You&apos;ll find Pocket Manager on your home screen.
       </p>
     );
   }
@@ -142,11 +237,17 @@ export function InstallAppButton({ variant = "card" }: { variant?: "card" | "row
   if (variant === "row") {
     return (
       <>
-        <button type="button" onClick={install} className="list-row -mx-2 w-[calc(100%+1rem)] rounded-xl px-2 text-left hover:bg-surface-2">
+        <button
+          type="button"
+          onClick={install}
+          className="list-row -mx-2 w-[calc(100%+1rem)] rounded-xl px-2 text-left hover:bg-surface-2"
+        >
           <AppLogo />
           <span className="min-w-0 flex-1">
             <span className="row-title block">Install the app</span>
-            <span className="row-meta block">Put Hisaab on your home screen</span>
+            <span className="row-meta block">
+              Put Pocket Manager on your home screen
+            </span>
           </span>
           <Icon name="chevron-right" className="size-5 text-faint" />
         </button>
@@ -162,11 +263,16 @@ export function InstallAppButton({ variant = "card" }: { variant?: "card" | "row
         <div className="min-w-0 flex-1">
           <p className="card-title">Get the app on your phone</p>
           <p className="mt-0.5 text-sm text-muted">
-            Add Hisaab to your home screen. It opens like a normal app, no app store needed.
+            Add Pocket Manager to your home screen. It opens like a normal app,
+            no app store needed.
           </p>
         </div>
       </div>
-      <button type="button" onClick={install} className="btn-primary w-full sm:w-auto">
+      <button
+        type="button"
+        onClick={install}
+        className="btn-primary w-full sm:w-auto"
+      >
         <Icon name="download" className="size-4" />
         Install the app
       </button>
