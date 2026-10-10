@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { ACCOUNTS, type Balances } from "@/lib/accounts";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { usePrefetch } from "@/components/form/use-prefetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { FormError } from "@/components/form/form-error";
@@ -19,6 +20,7 @@ type Props = {
 // "How much money do you have right now?" - one amount per account.
 export function OpeningBalancesForm({ initial, includeSadqa, submitLabel, onSaved }: Props) {
   const router = useRouter();
+  usePrefetch(onSaved ? null : "/accounts"); // where "Save" goes
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const accounts = ACCOUNTS.filter((a) => includeSadqa || a.value !== "sadqa");

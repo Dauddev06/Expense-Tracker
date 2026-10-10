@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { CATEGORIES } from "@/lib/constants";
 import { chapterEnd, chapterLabel, chapterStart } from "@/lib/dates";
 import { FREQUENCY_OPTIONS, frequencyLabel, type FrequencyChoice } from "@/lib/expected-input";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { usePrefetch } from "@/components/form/use-prefetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { ChoiceChips } from "@/components/form/choice-chips";
@@ -18,7 +18,6 @@ import { useToday } from "@/components/form/use-today";
 type Values = {
   title: string;
   amount: number;
-  category: string;
   account: SpendingAccount;
   frequency: FrequencyChoice;
   dueDate: string;
@@ -34,6 +33,7 @@ const SCHEDULE_HINT: Record<FrequencyChoice, string> = {
 // "Add expected expense": something you plan to pay this month (or every month).
 export function ExpectedForm({ chapter, presetAccount }: { chapter: string; presetAccount?: string }) {
   const router = useRouter();
+  usePrefetch(`/expected?chapter=${chapter}`); // where "Save" goes
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const { today } = useToday();
@@ -49,7 +49,6 @@ export function ExpectedForm({ chapter, presetAccount }: { chapter: string; pres
     defaultValues: {
       title: "",
       amount: undefined as unknown as number,
-      category: "bills",
       account: isSpendingAccount(presetAccount) ? presetAccount : "current",
       frequency: "once",
       // This month -> today. Another month -> the 1st of that month.
@@ -91,7 +90,7 @@ export function ExpectedForm({ chapter, presetAccount }: { chapter: string; pres
           id="title"
           autoFocus
           className={`input ${errors.title ? "input-error" : ""}`}
-          placeholder="e.g. Rent, Electricity bill, Gym"
+          placeholder="e.g. Rent, Electricity, Gym fee, School fees"
           {...register("title", {
             required: "Please say what it is for",
             maxLength: { value: 120, message: "Keep it under 120 characters" },
@@ -107,21 +106,6 @@ export function ExpectedForm({ chapter, presetAccount }: { chapter: string; pres
         error={errors.amount?.message}
       />
 
-      <Controller
-        name="category"
-        control={control}
-        rules={{ required: "Pick a category" }}
-        render={({ field }) => (
-          <ChoiceChips
-            label="Category"
-            value={field.value}
-            onChange={field.onChange}
-            onBlur={field.onBlur}
-            options={CATEGORIES}
-            error={errors.category?.message}
-          />
-        )}
-      />
 
       <PayFromField control={control} error={errors.account?.message} />
 

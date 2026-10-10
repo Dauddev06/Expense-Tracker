@@ -9,6 +9,7 @@ import { accountLabel } from "@/lib/accounts";
 import { formatMoney } from "@/lib/constants";
 import { friendlyDate, todayString } from "@/lib/dates";
 import { ConfirmAction } from "@/components/confirm-action";
+import { OptimisticItem } from "@/components/optimistic-item";
 import { LoanPaymentForm } from "@/components/loan-payment-form";
 import { IconTile } from "@/components/icons";
 import { BackLink } from "@/components/page-header";
@@ -116,7 +117,7 @@ export default async function LoanDetailPage({ params }: PageProps<"/loans/[id]"
         ) : (
           <ul className="-my-3 divide-y divide-line-soft">
             {loan.payments.map((p) => (
-              <li key={p.id} className="list-row flex-wrap">
+              <OptimisticItem key={p.id} className="list-row flex-wrap">
                 <IconTile
                   name={lent ? "arrow-in" : "arrow-out"}
                   tone={lent ? "bg-positive-soft text-positive" : "bg-negative-soft text-negative"}
@@ -143,8 +144,9 @@ export default async function LoanDetailPage({ params }: PageProps<"/loans/[id]"
                   confirmLabel="Yes, delete it"
                   url={`/api/loans/${loan.id}/payments/${p.id}`}
                   successMessage="Payment deleted"
+                  removesItem
                 />
-              </li>
+              </OptimisticItem>
             ))}
           </ul>
         )}

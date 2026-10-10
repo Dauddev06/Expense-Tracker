@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog } from "@/components/dialog";
+import { useOptimisticItem } from "@/components/optimistic-item";
 import { useToast } from "@/components/toast";
 import { sendJson } from "@/lib/client-fetch";
 
@@ -17,6 +18,9 @@ type Props = {
   redirectTo?: string;
   // Also reload the layout (needed when the list of accounts changes)
   refreshLayout?: boolean;
+  // The action removes the row it sits in (a delete): hide that row at once,
+  // without waiting for the server. Needs an <OptimisticItem> around the row.
+  removesItem?: boolean;
   variant?: "danger" | "secondary" | "link";
 };
 
@@ -32,15 +36,36 @@ export function ConfirmAction({
   successMessage,
   redirectTo,
   refreshLayout = false,
+  removesItem = false,
   variant = "secondary",
 }: Props) {
   const router = useRouter();
   const showToast = useToast();
+  const item = useOptimisticItem();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Re-draw the page with fresh data from the server, in the background
+  // (startTransition: the screen stays usable while it loads)
+  const refreshInBackground = () => startTransition(() => router.refresh());
+
   async function confirm() {
+    // Fast path: remove the row now, ask the server afterwards
+    if (removesItem && item && !redirectTo) {
+      setOpen(false);
+      item.hide();
+      showToast(successMessage);
+      const { ok, data } = await sendJson(url, method);
+      if (!ok) {
+        item.show(); // the server said no: put it back, and say why
+        showToast(data.message ?? "Couldn't do that. Please try again.", "error");
+        return;
+      }
+      refreshInBackground(); // totals etc. catch up quietly
+      return;
+    }
+
     setBusy(true);
     setError(null);
     const { ok, data } = await sendJson(url, method);
@@ -53,7 +78,7 @@ export function ConfirmAction({
     showToast(successMessage);
     // Going somewhere else already loads fresh data; staying needs a refresh
     if (redirectTo) router.push(redirectTo);
-    if (!redirectTo || refreshLayout) router.refresh();
+    if (!redirectTo || refreshLayout) refreshInBackground();
   }
 
   const buttonClass =
@@ -67,6 +92,8 @@ export function ConfirmAction({
         onClick={() => {
           setError(null);
           setOpen(true);
+          // Load the next page ahead of time, so going there after is instant
+          if (redirectTo) router.prefetch(redirectTo);
         }}
       >
         {label}

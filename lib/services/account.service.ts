@@ -68,21 +68,3 @@ export function chapterOf(
 ): AccountChapter {
   return all[account] ?? ZERO;
 }
-
-// What was spent from one account in one month, per category (biggest first)
-export async function getAccountSpendingByCategory(
-  userId: string,
-  account: AccountId,
-  chapter: string,
-): Promise<{ category: string; total: number }[]> {
-  const ds = await getDataSource();
-  const rows: { category: string; total: string }[] = await ds.query(
-    `SELECT category, SUM(amount) AS total
-       FROM spendings
-      WHERE "userId" = $1 AND account = $2 AND "spentOn" BETWEEN $3 AND $4
-      GROUP BY category
-      ORDER BY total DESC`,
-    [userId, account, chapterStart(chapter), chapterEnd(chapter)],
-  );
-  return rows.map((c) => ({ category: c.category, total: Number(c.total) }));
-}

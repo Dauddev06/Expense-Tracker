@@ -100,11 +100,10 @@ export async function renameSavingsAccount(
   name: string,
 ): Promise<SavingsAccountDTO | null> {
   const repo = await getRepo("SavingsAccount");
-  const row = await repo.findOne({ where: { userId, key, closed: false } });
-  if (!row) return null;
-  row.name = name;
-  await repo.save(row);
-  return { key: row.key as ExtraSavingsId, name: row.name };
+  // One UPDATE; "affected" tells us whether the account was found
+  const result = await repo.update({ userId, key, closed: false }, { name });
+  if (!result.affected) return null;
+  return { key: key as ExtraSavingsId, name };
 }
 
 // Closing only works on an empty account that nobody owes money to.

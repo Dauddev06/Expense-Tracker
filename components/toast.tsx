@@ -7,16 +7,16 @@ import { Icon } from "@/components/icons";
 // Built with plain React state (no extra packages):
 //   const showToast = useToast();
 //   showToast("PKR 5,000 moved to Savings");
-const ToastContext = createContext<(message: string) => void>(() => {});
+//   showToast("Couldn't delete it. Try again.", "error");
+type Tone = "success" | "error";
+const ToastContext = createContext<(message: string, tone?: Tone) => void>(() => {});
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   // `id` changes for every new message, which restarts the CSS animation
-  const [toast, setToast] = useState<{ id: number; message: string } | null>(
-    null,
-  );
+  const [toast, setToast] = useState<{ id: number; message: string; tone: Tone } | null>(null);
 
-  const show = useCallback((message: string) => {
-    setToast((old) => ({ id: (old?.id ?? 0) + 1, message }));
+  const show = useCallback((message: string, tone: Tone = "success") => {
+    setToast((old) => ({ id: (old?.id ?? 0) + 1, message, tone }));
   }, []);
 
   // Remove the message after the fade-out animation has finished
@@ -41,7 +41,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             // "Inverse" colours: dark in light mode, light in dark mode
             className="toast flex items-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-canvas shadow-xl"
           >
-            <Icon name="check-circle" className="size-5 text-positive-solid" />
+            {toast.tone === "error" ? (
+              <Icon name="alert" className="size-5 text-negative-solid" />
+            ) : (
+              <Icon name="check-circle" className="size-5 text-positive-solid" />
+            )}
             {toast.message}
           </div>
         )}

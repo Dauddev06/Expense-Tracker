@@ -23,7 +23,6 @@ export default async function EditRecurringPage({
           initial={{
             title: recurring.title,
             amount: recurring.amount,
-            category: recurring.category,
             account: recurring.account,
             frequency: recurring.frequency,
             active: recurring.active ? "on" : "paused",

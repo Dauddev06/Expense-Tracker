@@ -10,8 +10,9 @@ export default async function WelcomeLayout({ children }: { children: React.Reac
 
   return (
     <ToastProvider>
-      <main className="flex flex-1 justify-center px-4 py-8 sm:py-12">
-        <div className="w-full max-w-lg space-y-6">
+      {/* my-auto: in the middle of the screen, on phones too (see (auth)/layout.tsx) */}
+      <main className="flex min-h-dvh flex-1 flex-col px-4 py-8 sm:py-12">
+        <div className="mx-auto my-auto w-full max-w-lg space-y-6">
           <Brand />
           {children}
         </div>

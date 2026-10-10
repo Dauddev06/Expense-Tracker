@@ -17,6 +17,7 @@ import type { MoneyAction } from "@/lib/money-input";
 import type { OwedBySavings } from "@/lib/services/balance.service";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
 import { useAccounts } from "@/components/accounts-context";
+import { usePrefetch } from "@/components/form/use-prefetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { AccountPicker } from "@/components/form/account-picker";
@@ -141,6 +142,7 @@ export function MoneyActionForm({ type, balances, owedBySavings, presetFrom, pre
   const accounts = useAccounts();
   const setup = setupFor(type, accounts, owedBySavings);
   const router = useRouter();
+  usePrefetch("/accounts"); // where "Save" goes
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const { today, yesterday } = useToday();

@@ -4,6 +4,7 @@ import { friendlyDate } from "@/lib/dates";
 import { IconTile } from "@/components/icons";
 import { SignedMoney } from "@/components/signed-money";
 import { ConfirmAction } from "@/components/confirm-action";
+import { OptimisticItem } from "@/components/optimistic-item";
 
 // The icon tile repeats what the sentence and the amount already say
 const FLOW_TILE = {
@@ -29,7 +30,7 @@ export function ActivityList({ items, today }: { items: ActivityItem[]; today: s
           </>
         );
         return (
-          <li key={item.key}>
+          <OptimisticItem key={item.key}>
             {item.href ? (
               <Link href={item.href} className="list-row -mx-2 rounded-xl px-2 hover:bg-surface-2">
                 {body}
@@ -47,10 +48,11 @@ export function ActivityList({ items, today }: { items: ActivityItem[]; today: s
                   confirmLabel="Yes, remove it"
                   url={`/api/money/${item.removable.id}`}
                   successMessage="Removed"
+                  removesItem
                 />
               </div>
             )}
-          </li>
+          </OptimisticItem>
         );
       })}
     </ul>

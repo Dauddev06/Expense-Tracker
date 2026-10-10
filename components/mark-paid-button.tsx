@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { formatMoney } from "@/lib/constants";
@@ -8,6 +8,7 @@ import { spendingAccountsOf, type Balances, type SpendingAccount } from "@/lib/a
 import { useAccounts } from "@/components/accounts-context";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
 import { Dialog } from "@/components/dialog";
+import { useOptimisticItem } from "@/components/optimistic-item";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { AccountPicker } from "@/components/form/account-picker";
@@ -16,7 +17,7 @@ import { EffectPreview } from "@/components/form/effect-preview";
 import { FormError } from "@/components/form/form-error";
 import { useToday } from "@/components/form/use-today";
 
-// account = where the bill is usually paid from: picked first
+// account = where it is usually paid from: picked first
 type Item = { id: string; title: string; amount: number; account: SpendingAccount };
 type Values = { amount: number; account: SpendingAccount; paidOn: string };
 
@@ -41,6 +42,7 @@ function PayForm({ item, balances, onDone }: { item: Item; balances: Balances; o
   const [serverError, setServerError] = useState<string | null>(null);
   const { today, yesterday } = useToday();
   const options = spendingAccountsOf(useAccounts());
+  const row = useOptimisticItem(); // the row in the "still to pay" list
 
   const {
     register,
@@ -68,7 +70,10 @@ function PayForm({ item, balances, onDone }: { item: Item; balances: Balances; o
     }
     showToast(`Paid ${formatMoney(values.amount)} for ${item.title}`);
     onDone();
-    router.refresh();
+    // Take it off the "still to pay" list now; the rest of the page
+    // (balances, the "Paid" list) catches up in the background.
+    row?.hide();
+    startTransition(() => router.refresh());
   }
 
   return (

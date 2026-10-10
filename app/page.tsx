@@ -13,7 +13,7 @@ import { ScrollReveal } from "@/components/landing/scroll-reveal";
 export const metadata: Metadata = {
   title: { absolute: "Pocket Manager · Every rupee, accounted for" },
   description:
-    "A simple money app for your month: balances for every account, bills you still have to pay, income with Sadqa set aside, loans and savings. Free.",
+    "A simple money app for your month: balances for every account, what you still have to pay, income with Sadqa set aside, loans and savings. Free.",
 };
 
 // ---------------------------------------------------------------------------
@@ -48,7 +48,7 @@ const STEPS: {
     icon: "calendar",
     colour: "bg-sun",
     title: "Plan the month",
-    text: "Add your salary and the bills you know are coming, like rent, internet or school fees. Repeating ones fill themselves in every month.",
+    text: "Add your salary and the payments you know are coming, like rent, internet or school fees. Repeating ones fill themselves in every month.",
     mock: {
       title: "October 2026",
       aside: "planned",
@@ -86,7 +86,7 @@ const FEATURES: { icon: IconName; colour: string; title: string; text: string; p
     points: [
       "What's left from your income this month",
       "Every account: what it started with and what it has now",
-      "Bills still to pay, and where the money went",
+      "What's still to pay, and your biggest spendings",
     ],
   },
   {
@@ -95,7 +95,7 @@ const FEATURES: { icon: IconName; colour: string; title: string; text: string; p
     title: "Accounts",
     text: "Current, Savings, Pocket and Sadqa, each on its own page.",
     points: [
-      "Its bills, loans and activity in one place",
+      "What's still to pay from it, its loans and activity",
       "Add money, move money between accounts",
       "Look back at any past month",
     ],
@@ -110,9 +110,9 @@ const FEATURES: { icon: IconName; colour: string; title: string; text: string; p
   {
     icon: "calendar",
     colour: "bg-sun",
-    title: "Bills",
+    title: "Expected expenses",
     text: "Know what's still coming this month.",
-    points: ["One-time or every week, 2 weeks or month", "Each bill shows on the account it's paid from", "Unpaid bills never disappear on the 1st"],
+    points: ["One-time or every week, 2 weeks or month", "Each one shows on the account it's paid from", "Unpaid ones never disappear on the 1st"],
   },
   {
     icon: "banknote",
@@ -132,8 +132,8 @@ const FEATURES: { icon: IconName; colour: string; title: string; text: string; p
     icon: "receipt",
     colour: "bg-peach",
     title: "Spendings",
-    text: "Everything you paid for, by category.",
-    points: ["Food, transport, shopping, bills…", "From any account, cash included", "A clear picture of where it went"],
+    text: "Everything you paid for, in your own words.",
+    points: ["Just write what it was for, like Lunch or Petrol", "From any account, cash included", "See your biggest spendings each month"],
   },
   {
     icon: "moon",
@@ -155,7 +155,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "What happens on the 1st of every month?",
-    a: "Nothing is lost. Whatever is left in each account at the end of the month is exactly what the next month starts with, and bills you didn't pay stay on your list until you pay or delete them. You can open any past month to see it as it was.",
+    a: "Nothing is lost. Whatever is left in each account at the end of the month is exactly what the next month starts with, and anything you didn't pay stays on your list until you pay or delete them. You can open any past month to see it as it was.",
   },
   {
     q: "How does Sadqa work?",
@@ -203,7 +203,7 @@ export default async function LandingPage() {
               Every rupee, accounted for.
             </h1>
             <p {...delay(160)} className="hero-in mt-6 max-w-xl text-lg leading-relaxed text-ink-2">
-              One simple place for your month: what&apos;s in each account, which bills are still to pay, who owes
+              One simple place for your month: what&apos;s in each account, what&apos;s still to pay, who owes
               what, and Sadqa set aside from every income.
             </p>
             <div {...delay(240)} className="hero-in mt-8 flex flex-wrap gap-3">
@@ -224,7 +224,7 @@ export default async function LandingPage() {
               rows={[
                 { label: "Salary", value: "+120,000", tag: "Received", tone: "good" },
                 { label: "Rent", value: "−35,000", tag: "Paid", tone: "good" },
-                { label: "Electricity", value: "−8,400", tag: "To pay", tone: "wait" },
+                { label: "Electricity", value: "−8,400", tag: "Still to pay", tone: "wait" },
                 { label: "Sadqa set aside", value: "3,000", tag: "2.5%", tone: "neutral" },
               ]}
               footer={
@@ -270,7 +270,7 @@ export default async function LandingPage() {
                 <h3>Pocket Manager</h3>
                 <ul className="mt-5 space-y-4 text-zinc-700">
                   {[
-                    "Shows the bills still coming, so you can plan the rest of the month.",
+                    "Shows what you still have to pay, so you can plan the rest of the month.",
                     "A balance for every account: bank, savings, wallet and Sadqa.",
                     "Each month carries its money into the next. Nothing is ever reset.",
                     "Remembers who owes what, and what you owe your savings.",
@@ -344,7 +344,7 @@ export default async function LandingPage() {
                 </div>
               </div>
               <p className="mt-5 border-t border-white/10 pt-4 text-sm text-white/70">
-                → November starts with <span className="text-white">114,600</span>. Unpaid bills come along too.
+                → November starts with <span className="text-white">114,600</span>. Anything unpaid comes along too.
               </p>
             </div>
             <Link href="/register" className="mt-10 inline-flex min-h-12 items-center rounded-lg bg-white px-6 text-zinc-900 transition hover:bg-zinc-100">
@@ -439,7 +439,7 @@ export default async function LandingPage() {
               </p>
             </div>
             <ul {...reveal("zoom", 1)} className="card space-y-4">
-              {["Every feature, for everyone", "As many months, bills and accounts as you like", "Your data stays yours"].map(
+              {["Every feature, for everyone", "As many months, payments and accounts as you like", "Your data stays yours"].map(
                 (t) => (
                   <li key={t} className="flex items-center gap-3 text-ink">
                     <span className="flex size-7 items-center justify-center rounded-full bg-positive-soft text-positive">
@@ -511,7 +511,7 @@ export default async function LandingPage() {
             <BrandMark size="sm" />
             <p className="mt-4 text-ink">Pocket Manager</p>
             <p className="mt-2 text-sm leading-relaxed text-muted">
-              Balances, bills, income, loans and Sadqa in one simple app. Every rupee, accounted for.
+              Balances, expected expenses, income, loans and Sadqa in one simple app. Every rupee, accounted for.
             </p>
           </div>
           <FooterColumn title="Product" links={LANDING_LINKS} />
@@ -521,7 +521,7 @@ export default async function LandingPage() {
               { href: "/home", label: "Dashboard" },
               { href: "/accounts", label: "Accounts" },
               { href: "/spendings", label: "Spendings" },
-              { href: "/expected", label: "Bills" },
+              { href: "/expected", label: "Expected expenses" },
               { href: "/income", label: "Income" },
               { href: "/loans", label: "Loans" },
             ]}

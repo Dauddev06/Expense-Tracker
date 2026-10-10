@@ -9,6 +9,7 @@ import { chapterLabel, friendlyDateInline, readChapterParam, todayString } from 
 import { ChapterNav } from "@/components/chapter-nav";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmAction } from "@/components/confirm-action";
+import { OptimisticItem } from "@/components/optimistic-item";
 import { ReceiveIncomeButton } from "@/components/receive-income-button";
 import { Icon, IconTile } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
@@ -75,7 +76,7 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
 
           <ul className="space-y-3">
             {incomes.map((income) => (
-              <li key={income.id} className="card">
+              <OptimisticItem key={income.id} className="card">
                 <div className="flex items-start gap-3">
                   <IconTile name="banknote" tone="bg-positive-soft text-positive" />
                   <div className="min-w-0 flex-1">
@@ -132,11 +133,12 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
                         confirmLabel="Yes, delete it"
                         url={`/api/income/${income.id}`}
                         successMessage="Income deleted"
+                        removesItem
                       />
                     </div>
                   </div>
                 </div>
-              </li>
+              </OptimisticItem>
             ))}
           </ul>
         </>

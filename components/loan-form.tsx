@@ -8,6 +8,7 @@ import { balanceOf, isSpendingAccount, spendingAccountsOf, type Balances, type S
 import { useAccounts } from "@/components/accounts-context";
 import type { LoanDirection } from "@/lib/db/entities/Loan";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { usePrefetch } from "@/components/form/use-prefetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { AccountPicker } from "@/components/form/account-picker";
@@ -36,6 +37,7 @@ type Props = {
 
 export function LoanForm({ balances, loanId, initial, amountLocked = false, presetAccount }: Props) {
   const router = useRouter();
+  usePrefetch(loanId ? `/loans/${loanId}` : null); // where "Save" goes when editing
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const { today, yesterday } = useToday();

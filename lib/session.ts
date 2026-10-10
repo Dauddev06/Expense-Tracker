@@ -2,7 +2,7 @@
 import { randomBytes } from "crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
-import { getRepo } from "@/lib/db/data-source";
+import { getDataSource, getRepo } from "@/lib/db/data-source";
 import type { PublicUser } from "@/lib/services/user.service";
 
 const COOKIE_NAME = "session_token";
@@ -13,7 +13,7 @@ export async function createSession(userId: string) {
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
 
   const repo = await getRepo("Session");
-  await repo.save(repo.create({ token, userId, expiresAt }));
+  await repo.insert({ token, userId, expiresAt }); // one INSERT (save() adds a transaction)
 
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, token, {
@@ -33,13 +33,16 @@ export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
 
-  // The session and its user in ONE query (a JOIN), not two
-  const repo = await getRepo("Session");
-  const session = await repo.findOne({ where: { token }, relations: { user: true } });
-  if (!session || session.expiresAt < new Date() || !session.user) return null;
-
-  const { id, name, email } = session.user;
-  return { id, name, email };
+  // The session and its user in ONE query (a JOIN). (TypeORM's findOne with
+  // `relations` would quietly send two queries, and this runs on EVERY page.)
+  const ds = await getDataSource();
+  const rows: PublicUser[] = await ds.query(
+    `SELECT u.id, u.name, u.email
+       FROM sessions s JOIN users u ON u.id = s."userId"
+      WHERE s.token = $1 AND s."expiresAt" > now()`,
+    [token],
+  );
+  return rows[0] ?? null;
 });
 
 export async function destroySession() {

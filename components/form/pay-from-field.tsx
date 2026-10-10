@@ -5,7 +5,7 @@ import { spendingAccountsOf } from "@/lib/accounts";
 import { useAccounts } from "@/components/accounts-context";
 import { AccountPicker } from "@/components/form/account-picker";
 
-// "Pay from": which account a bill will be paid from. The bill then shows up
+// "Pay from": which account an expected expense will be paid from. It then shows up
 // on that account's page. Works in any form with an `account` field.
 export function PayFromField<T extends FieldValues & { account: string }>({
   control,

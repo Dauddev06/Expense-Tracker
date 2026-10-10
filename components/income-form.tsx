@@ -7,6 +7,7 @@ import { formatMoney } from "@/lib/constants";
 import type { Balances } from "@/lib/accounts";
 import { chapterLabel } from "@/lib/dates";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { usePrefetch } from "@/components/form/use-prefetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { ChoiceChips } from "@/components/form/choice-chips";
@@ -36,6 +37,7 @@ const sadqaFor = (amount: number, percent: number) => Math.round(amount * percen
 
 export function IncomeForm({ chapter, balances, sadqaPercent, incomeId, initial, submitLabel, onSaved }: Props) {
   const router = useRouter();
+  usePrefetch(`/income?chapter=${chapter}`); // where "Save" goes
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const { today, yesterday } = useToday();

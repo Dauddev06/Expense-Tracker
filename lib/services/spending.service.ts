@@ -1,5 +1,5 @@
 import { Between } from "typeorm";
-import { getRepo } from "@/lib/db/data-source";
+import { getDataSource, getRepo } from "@/lib/db/data-source";
 import type { Spending } from "@/lib/db/entities/Spendings";
 import type { PlannedExpense } from "@/lib/db/entities/PlannedExpense";
 import type { SpendingInput } from "@/lib/spending-input";
@@ -92,8 +92,9 @@ export async function updateSpending(
     if (!existing) return null;
     if (existing.account !== input.account) await assertOwnAccounts(m, userId, [input.account]);
 
-    repo.merge(existing, input); // copy the new values onto the loaded entity
-    const saved = await repo.save(existing);
+    // update() is one UPDATE; save() would read the row again first
+    await repo.update({ id, userId }, input);
+    const saved = repo.merge(existing, input); // the row as it is now
     await assertNoNegativeBalance(m, userId, [
       { account: input.account, field: "amount", requested: input.amount },
     ]);
@@ -122,24 +123,27 @@ export async function deleteSpending(
   });
 }
 
-// How much was spent in a month, per category (biggest first).
-export async function getSpendingByCategory(
+// The month's spending: the total, and the biggest few (most expensive first).
+// ONE query: "SUM(amount) OVER ()" adds up ALL the month's rows, even though
+// only the top `limit` rows are sent back.
+export async function getMonthSpending(
   userId: string,
   chapter: string,
-): Promise<{ category: string; total: number }[]> {
-  const repo = await getRepo("Spending");
-  // SELECT category, SUM(amount) ... GROUP BY category
-  const rows = await repo
-    .createQueryBuilder("s")
-    .select("s.category", "category")
-    .addSelect("SUM(s.amount)", "total")
-    .where("s.userId = :userId", { userId })
-    .andWhere("s.spentOn BETWEEN :start AND :end", {
-      start: chapterStart(chapter),
-      end: chapterEnd(chapter),
-    })
-    .groupBy("s.category")
-    .orderBy("total", "DESC")
-    .getRawMany<{ category: string; total: string }>();
-  return rows.map((r) => ({ category: r.category, total: Number(r.total) }));
+  limit = 5,
+): Promise<{ total: number; biggest: SpendingDTO[] }> {
+  const ds = await getDataSource();
+  const rows: (Spending & { total: string })[] = await ds.query(
+    `SELECT id, title, amount, category, "spentOn"::text AS "spentOn", note, account,
+            SUM(amount) OVER () AS total
+       FROM spendings
+      WHERE "userId" = $1 AND "spentOn" BETWEEN $2 AND $3
+      ORDER BY amount DESC, "createdAt" DESC
+      LIMIT $4`,
+    [userId, chapterStart(chapter), chapterEnd(chapter), limit],
+  );
+  return {
+    total: Number(rows[0]?.total ?? 0),
+    // Raw queries skip the entity's money transformer, so convert here
+    biggest: rows.map((r) => toSpendingDTO({ ...r, amount: Number(r.amount) })),
+  };
 }

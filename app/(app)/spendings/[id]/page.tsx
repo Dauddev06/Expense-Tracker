@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/session";
 import { getSpending } from "@/lib/services/spending.service";
 import { getAllAccountNames } from "@/lib/services/savings-account.service";
 import { isUuid } from "@/lib/spending-input";
-import { formatMoney, getCategory } from "@/lib/constants";
+import { formatMoney } from "@/lib/constants";
 import { getAccount } from "@/lib/accounts";
 import { friendlyDate, todayString } from "@/lib/dates";
 import { ConfirmAction } from "@/components/confirm-action";
@@ -24,7 +24,6 @@ export default async function SpendingDetailPage({
   const [spending, accounts] = await Promise.all([getSpending(user.id, id), getAllAccountNames(user.id)]);
   if (!spending) notFound(); // shows app/(app)/spendings/[id]/not-found.tsx
 
-  const cat = getCategory(spending.category);
   const account = getAccount(spending.account, accounts);
 
   return (
@@ -33,9 +32,9 @@ export default async function SpendingDetailPage({
 
       <div className="card space-y-6">
         <div className="flex items-start gap-4">
-          <IconTile name={cat.icon} tone={cat.tile} size="lg" />
+          <IconTile name="receipt" tone="bg-negative-soft text-negative" size="lg" />
           <div className="min-w-0 flex-1">
-            <p className="row-meta">{cat.label}</p>
+            <p className="row-meta">Spending</p>
             <h1 className="page-title">{spending.title}</h1>
           </div>
         </div>

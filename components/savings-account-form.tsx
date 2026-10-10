@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { formatMoney } from "@/lib/constants";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { usePrefetch } from "@/components/form/use-prefetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { FormError } from "@/components/form/form-error";
@@ -21,6 +22,7 @@ export function SavingsAccountForm(props: Props) {
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const creating = props.mode === "create";
+  usePrefetch(creating ? null : `/accounts/${props.accountKey}`); // where "Save" goes when renaming
 
   const {
     register,

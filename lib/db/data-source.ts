@@ -41,9 +41,16 @@ export function buildDataSourceOptions(): PostgresOptions {
     ...connection,
     // Hosted Postgres (Neon) only accepts encrypted connections.
     ssl: process.env.DB_SSL === "true",
-    // Max connections in the pool. On Vercel every serverless function opens
-    // its own pool, so keep this small there (e.g. DB_POOL_MAX=3).
-    extra: { max: Number(process.env.DB_POOL_MAX ?? 10) },
+    extra: {
+      // Max connections in the pool, i.e. how many queries can run at the
+      // same time. With Neon's POOLED connection string, 10 is fine on Vercel.
+      max: Number(process.env.DB_POOL_MAX ?? 10),
+      // Keep an unused connection open for a minute (the default is only 10
+      // seconds). Opening a new one to a hosted database costs several round
+      // trips (network + encryption + password check); people pause between
+      // taps, so with 10 seconds almost every tap had to reconnect first.
+      idleTimeoutMillis: 60_000,
+    },
     // Use Postgres' built-in gen_random_uuid() for uuid primary keys. It is
     // part of core Postgres since v13, so a fresh hosted database needs no
     // extra extension (the default "uuid-ossp" would have to be installed).

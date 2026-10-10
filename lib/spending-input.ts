@@ -1,5 +1,4 @@
 // ⚠️ TEMPORARY (Steps 3-5). Zod replaces this file in Step 6.
-import { CATEGORY_VALUES } from "@/lib/constants";
 import { isSpendingAccount, type SpendingAccount } from "@/lib/accounts";
 import { FUTURE_DAY_MESSAGE, amountError, readAmount } from "@/lib/input-helpers";
 import { isDateString, isFutureDate } from "@/lib/dates";
@@ -23,7 +22,6 @@ export function parseSpendingInput(body: unknown): ParseResult {
 
   const title = typeof b.title === "string" ? b.title.trim() : "";
   const amount = readAmount(b.amount);
-  const category = typeof b.category === "string" ? b.category : "";
   const spentOn = typeof b.spentOn === "string" ? b.spentOn : "";
   const note =
     typeof b.note === "string" && b.note.trim() ? b.note.trim() : null;
@@ -34,8 +32,6 @@ export function parseSpendingInput(body: unknown): ParseResult {
   if (title.length > 120) fieldErrors.title = ["Keep it under 120 characters"];
   const amountProblem = amountError(amount);
   if (amountProblem) fieldErrors.amount = [amountProblem];
-  if (!CATEGORY_VALUES.includes(category as never))
-    fieldErrors.category = ["Pick a category"];
   if (!isDateString(spentOn))
     fieldErrors.spentOn = ["Pick a valid date"];
   else if (isFutureDate(spentOn)) fieldErrors.spentOn = [FUTURE_DAY_MESSAGE];
@@ -49,7 +45,9 @@ export function parseSpendingInput(body: unknown): ParseResult {
     data: {
       title,
       amount,
-      category,
+      // Categories were removed from the app (the title says what it was
+      // for). The database column stays, so every new row gets "other".
+      category: "other",
       spentOn,
       note,
       account: account as SpendingAccount,

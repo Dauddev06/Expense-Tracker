@@ -1,5 +1,5 @@
 import { In, type EntityManager } from "typeorm";
-import { getRepo } from "@/lib/db/data-source";
+import { getDataSource, getRepo } from "@/lib/db/data-source";
 import type { Loan, LoanDirection, LoanStatus } from "@/lib/db/entities/Loan";
 import type { LoanPayment } from "@/lib/db/entities/LoanPayment";
 import type { LedgerEntry } from "@/lib/db/entities/LedgerEntry";
@@ -67,11 +67,15 @@ function toDTO(loan: Loan): LoanDTO {
   };
 }
 
+// find() + [0], not findOne(): with `relations`, findOne() quietly runs TWO
+// queries (one to find the id, one to load it). Each query is a trip to the
+// database, so this one-query version is faster. The id is unique anyway.
 async function loadLoan(m: EntityManager, userId: string, id: string): Promise<Loan | null> {
-  return m.getRepository<Loan>("Loan").findOne({
+  const rows = await m.getRepository<Loan>("Loan").find({
     where: { id, userId },
     relations: { payments: true },
   });
+  return rows[0] ?? null;
 }
 
 // The ledger row for the loan itself:
@@ -103,8 +107,8 @@ export async function listLoans(userId: string): Promise<LoanDTO[]> {
 }
 
 export async function getLoan(userId: string, id: string): Promise<LoanDTO | null> {
-  const repo = await getRepo("Loan");
-  const row = await repo.findOne({ where: { id, userId }, relations: { payments: true } });
+  const ds = await getDataSource();
+  const row = await loadLoan(ds.manager, userId, id);
   return row ? toDTO(row) : null;
 }
 

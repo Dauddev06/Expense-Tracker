@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   // Each page sets its own title, e.g. "Spendings · My Expense Manager"
   title: { default: "Pocket Manager", template: "%s · Pocket Manager" },
   description:
-    "Pocket Manager: every rupee, accounted for. Balances, bills, income, loans and Sadqa in one simple app.",
+    "Pocket Manager: every rupee, accounted for. Balances, expected expenses, income, loans and Sadqa in one simple app.",
   applicationName: "Pocket Manager",
 };
 
