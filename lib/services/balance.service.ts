@@ -136,8 +136,10 @@ export async function assertNoNegativeBalance(
   m: EntityManager,
   userId: string,
   checks: MoneyCheck[],
+  // Already read them? Pass them in to save a trip to the database.
+  balances?: Balances,
 ): Promise<void> {
-  const balances = await readBalances(m, userId);
+  balances ??= await readBalances(m, userId);
   for (const check of checks) {
     const after = balances[check.account] ?? 0;
     if (after >= 0) continue;
@@ -173,5 +175,6 @@ export async function assertAllNonNegative(m: EntityManager, userId: string): Pr
     m,
     userId,
     (Object.keys(balances) as AccountId[]).map((account) => ({ account, field: null })),
+    balances, // (reuse them: no second read)
   );
 }

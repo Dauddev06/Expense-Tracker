@@ -2,14 +2,14 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { getBalances, getOwedBySavings } from "@/lib/services/balance.service";
-import { chapterOf, getAccountSpendingByCategory, getAccountsChapter } from "@/lib/services/account.service";
+import { chapterOf, getAccountsChapter } from "@/lib/services/account.service";
 import { listActivity } from "@/lib/services/activity.service";
 import { listPendingForAccount } from "@/lib/services/expected.service";
 import { listLoans } from "@/lib/services/loan.service";
 import { getUserAccounts } from "@/lib/services/savings-account.service";
 import { getSettings } from "@/lib/services/settings.service";
 import { isAccount, isExtraSavings, type AccountInfo } from "@/lib/accounts";
-import { formatMoney, getCategory } from "@/lib/constants";
+import { formatMoney } from "@/lib/constants";
 import {
   chapterEnd,
   chapterLabel,
@@ -99,11 +99,10 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
   const chapter = readChapterParam(chapterParam);
   const isThisMonth = chapter === currentChapter();
   const canSpend = info.kind !== "sadqa";
-  const [balances, owedBySavings, allLedgers, byCategory, activity, loans, bills, settings] = await Promise.all([
+  const [balances, owedBySavings, allLedgers, activity, loans, toPay, settings] = await Promise.all([
     getBalances(user.id),
     getOwedBySavings(user.id),
     getAccountsChapter(user.id, chapter),
-    getAccountSpendingByCategory(user.id, account, chapter),
     listActivity(user.id, { account, limit: 100, from: chapterStart(chapter), to: chapterEnd(chapter) }),
     canSpend ? listLoans(user.id) : Promise.resolve([]),
     canSpend ? listPendingForAccount(user.id, account) : Promise.resolve([]),
@@ -112,8 +111,6 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
   const today = todayString();
   const ledger = chapterOf(allLedgers, account);
   const month = chapterLabel(chapter);
-  const biggest = byCategory[0]?.total ?? 0;
-  const spent = byCategory.reduce((sum, c) => sum + c.total, 0);
   const isSadqa = info.kind === "sadqa";
 
   // ---- Who owes what, for THIS account ----
@@ -267,59 +264,26 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
         </section>
       )}
 
-      {/* Bills to pay from this account (earlier months too: nothing is lost) */}
+      {/* Expected expenses to pay from this account (earlier months too: nothing is lost) */}
       {canSpend && (
-        <section className="card" aria-labelledby="bills-title">
+        <section className="card" aria-labelledby="topay-title">
           <div className="card-header">
-            <h2 id="bills-title" className="card-title">
+            <h2 id="topay-title" className="card-title">
               Still to pay from {info.label}
             </h2>
-            {bills.length > 0 ? (
-              <span className="amount text-ink">{formatMoney(bills.reduce((s, b) => s + b.amount, 0))}</span>
+            {toPay.length > 0 ? (
+              <span className="amount text-ink">{formatMoney(toPay.reduce((sum, item) => sum + item.amount, 0))}</span>
             ) : (
               <Link href={`/expected/new?account=${account}`} className="btn-link -mr-3">
-                Add a bill
+                Plan an expense
               </Link>
             )}
           </div>
-          {bills.length === 0 ? (
-            <p className="text-muted">No bills waiting to be paid from {info.label}.</p>
+          {toPay.length === 0 ? (
+            <p className="text-muted">Nothing waiting to be paid from {info.label}.</p>
           ) : (
-            <PendingList items={bills} balances={balances} today={today} compact />
+            <PendingList items={toPay} balances={balances} today={today} compact />
           )}
-        </section>
-      )}
-
-      {byCategory.length > 0 && (
-        <section className="card" aria-labelledby="spent-title">
-          <div className="card-header">
-            <h2 id="spent-title" className="card-title">
-              Spent from {info.label} in {month}
-            </h2>
-            <p className="amount money-out">{formatMoney(spent)}</p>
-          </div>
-          <ul className="space-y-3">
-            {byCategory.map((c) => {
-              const cat = getCategory(c.category);
-              return (
-                <li key={c.category} className="flex items-center gap-3">
-                  <IconTile name={cat.icon} tone={cat.tile} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium text-ink">{cat.label}</span>
-                      <span className="font-medium text-ink tabular-nums">{formatMoney(c.total)}</span>
-                    </div>
-                    <div className="mt-1.5 h-2 rounded-full bg-tile" aria-hidden="true">
-                      <div
-                        className={`h-full rounded-full ${cat.bar}`}
-                        style={{ width: `${Math.max(4, Math.round((c.total / biggest) * 100))}%` }}
-                      />
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
         </section>
       )}
 

@@ -105,52 +105,6 @@ const PATHS = {
       <path d="M20 17H4" />
     </>
   ),
-  utensils: (
-    <>
-      <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
-      <path d="M7 2v20" />
-      <path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" />
-    </>
-  ),
-  bus: (
-    <>
-      <path d="M8 6v6" />
-      <path d="M15 6v6" />
-      <path d="M2 12h19.6" />
-      <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3" />
-      <circle cx="7" cy="18" r="2" />
-      <path d="M9 18h5" />
-      <circle cx="16" cy="18" r="2" />
-    </>
-  ),
-  bag: (
-    <>
-      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-      <path d="M3 6h18" />
-      <path d="M16 10a4 4 0 0 1-8 0" />
-    </>
-  ),
-  film: (
-    <>
-      <rect width="18" height="18" x="3" y="3" rx="2" />
-      <path d="M7 3v18" />
-      <path d="M3 7.5h4" />
-      <path d="M3 12h18" />
-      <path d="M3 16.5h4" />
-      <path d="M17 3v18" />
-      <path d="M17 7.5h4" />
-      <path d="M17 16.5h4" />
-    </>
-  ),
-  pulse: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
-  box: (
-    <>
-      <path d="m7.5 4.27 9 5.15" />
-      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-      <path d="m3.3 7 8.7 5 8.7-5" />
-      <path d="M12 22V12" />
-    </>
-  ),
   check: <path d="M20 6 9 17l-5-5" />,
   "check-circle": (
     <>

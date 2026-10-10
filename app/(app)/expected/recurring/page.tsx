@@ -2,11 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { listRecurring } from "@/lib/services/expected.service";
-import { formatMoney, getCategory } from "@/lib/constants";
+import { formatMoney } from "@/lib/constants";
 import { chapterLabel } from "@/lib/dates";
 import { frequencyLabel } from "@/lib/expected-input";
 import { EmptyState } from "@/components/empty-state";
 import { ConfirmAction } from "@/components/confirm-action";
+import { OptimisticItem } from "@/components/optimistic-item";
 import { PauseRecurringButton } from "@/components/pause-recurring-button";
 import { IconTile } from "@/components/icons";
 import { BackLink, PageHeader } from "@/components/page-header";
@@ -39,9 +40,9 @@ export default async function RecurringPage() {
       ) : (
         <ul className="space-y-3">
           {recurring.map((r) => (
-            <li key={r.id} className="card">
+            <OptimisticItem key={r.id} className="card">
               <div className="flex items-start gap-3">
-                <IconTile name={getCategory(r.category).icon} tone={getCategory(r.category).tile} />
+                <IconTile name="repeat" tone="bg-brand-soft text-brand-ink" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <h2 className="row-title">{r.title}</h2>
@@ -72,11 +73,12 @@ export default async function RecurringPage() {
                       confirmLabel="Yes, delete it"
                       url={`/api/recurring/${r.id}`}
                       successMessage={`${r.title} deleted`}
+                      removesItem
                     />
                   </div>
                 </div>
               </div>
-            </li>
+            </OptimisticItem>
           ))}
         </ul>
       )}

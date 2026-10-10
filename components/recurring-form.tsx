@@ -3,10 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
-import { CATEGORIES } from "@/lib/constants";
 import { FREQUENCY_OPTIONS } from "@/lib/expected-input";
 import type { Frequency } from "@/lib/db/entities/RecurringExpense";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { usePrefetch } from "@/components/form/use-prefetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { ChoiceChips } from "@/components/form/choice-chips";
@@ -17,7 +17,6 @@ import { FormError } from "@/components/form/form-error";
 type Values = {
   title: string;
   amount: number;
-  category: string;
   account: SpendingAccount;
   frequency: Frequency;
   active: "on" | "paused";
@@ -32,6 +31,7 @@ const REPEAT_OPTIONS = FREQUENCY_OPTIONS.filter((f) => f.value !== "once") as {
 // Edit a repeating expense (the template), or pause it.
 export function RecurringForm({ id, initial }: { id: string; initial: Values }) {
   const router = useRouter();
+  usePrefetch("/expected/recurring"); // where "Save" goes
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -87,13 +87,6 @@ export function RecurringForm({ id, initial }: { id: string; initial: Values }) 
         error={errors.amount?.message}
       />
 
-      <Controller
-        name="category"
-        control={control}
-        render={({ field }) => (
-          <ChoiceChips label="Category" value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={CATEGORIES} />
-        )}
-      />
 
       <PayFromField control={control} error={errors.account?.message} />
 

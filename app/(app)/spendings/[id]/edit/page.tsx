@@ -30,7 +30,6 @@ export default async function EditSpendingPage({
         defaultValues={{
           title: spending.title,
           amount: spending.amount,
-          category: spending.category,
           spentOn: spending.spentOn,
           note: spending.note ?? "",
           account: spending.account,

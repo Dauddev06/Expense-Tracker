@@ -2,11 +2,12 @@ import Link from "next/link";
 import type { PlannedDTO } from "@/lib/services/expected.service";
 import type { AccountInfo, Balances } from "@/lib/accounts";
 import { accountLabel } from "@/lib/accounts";
-import { formatMoney, getCategory } from "@/lib/constants";
+import { formatMoney } from "@/lib/constants";
 import { friendlyDate, friendlyDateInline } from "@/lib/dates";
 import { frequencyLabel } from "@/lib/expected-input";
 import { Icon, IconTile } from "@/components/icons";
 import { ConfirmAction } from "@/components/confirm-action";
+import { OptimisticItem } from "@/components/optimistic-item";
 import { MarkPaidButton } from "@/components/mark-paid-button";
 
 // "Due today", "Due 15 Oct", or (late) "Was due 1 Oct"
@@ -36,12 +37,11 @@ export function PendingList({
   return (
     <ul className="-my-3 divide-y divide-line-soft">
       {items.map((item) => {
-        const cat = getCategory(item.category);
         const due = dueText(item.dueDate, today);
         return (
-          <li key={item.id} className="py-3">
+          <OptimisticItem key={item.id} className="py-3">
             <div className="flex items-start gap-3">
-              <IconTile name={cat.icon} tone={cat.tile} />
+              <IconTile name="calendar" tone="bg-brand-soft text-brand-ink" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-3">
                   <p className="row-title">{item.title}</p>
@@ -91,11 +91,12 @@ export function PendingList({
                     confirmLabel="Yes, delete it"
                     url={`/api/expected/${item.id}`}
                     successMessage="Deleted"
+                    removesItem
                   />
                 </>
               )}
             </div>
-          </li>
+          </OptimisticItem>
         );
       })}
     </ul>
@@ -115,7 +116,7 @@ export function PaidList({
   return (
     <ul className="-my-3 divide-y divide-line-soft">
       {items.map((item) => (
-        <li key={item.id} className="list-row">
+        <OptimisticItem key={item.id} className="list-row">
           <IconTile name="check" tone="bg-positive-soft text-positive" />
           <div className="min-w-0 flex-1">
             <p className="row-title">{item.title}</p>
@@ -138,8 +139,9 @@ export function PaidList({
             confirmLabel="Yes, undo it"
             url={`/api/expected/${item.id}/pay`}
             successMessage="Payment undone"
+            removesItem
           />
-        </li>
+        </OptimisticItem>
       ))}
     </ul>
   );

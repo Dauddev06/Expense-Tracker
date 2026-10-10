@@ -294,7 +294,7 @@ body {
     @apply inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-ink-2 transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-faint disabled:opacity-50 disabled:hover:bg-transparent;
   }
 
-  /* ---------- Choice buttons (accounts, categories, yes/no...) ---------- */
+  /* ---------- Choice buttons (accounts, how often, yes/no...) ---------- */
   .chip {
     @apply inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-2 text-sm font-medium text-ink-2 transition select-none hover:bg-surface-2 active:scale-[0.98];
   }

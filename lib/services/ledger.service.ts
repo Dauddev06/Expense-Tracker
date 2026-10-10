@@ -86,15 +86,20 @@ export async function deleteMoneyAction(
   id: string,
 ): Promise<boolean> {
   return moneyTransaction(userId, async (m) => {
-    const repo = m.getRepository<LedgerEntry>("LedgerEntry");
-    const entry = await repo.findOne({
-      where: { id, userId, type: In([...MONEY_ACTIONS]) },
-    });
-    if (!entry) return false;
+    // Delete it AND learn what it was, in one trip ("RETURNING type").
+    // Only hand-made movements can be removed here (MONEY_ACTIONS).
+    const result = await m
+      .createQueryBuilder()
+      .delete()
+      .from("LedgerEntry")
+      .where({ id, userId, type: In([...MONEY_ACTIONS]) })
+      .returning(["type"])
+      .execute();
+    const deleted = (result.raw as { type: LedgerEntry["type"] }[])[0];
+    if (!deleted) return false;
 
-    await repo.delete({ id, userId });
     await assertAllNonNegative(m, userId);
-    if (entry.type === "savings_borrow") await assertOwedNotNegative(m, userId);
+    if (deleted.type === "savings_borrow") await assertOwedNotNegative(m, userId);
     return true;
   });
 }

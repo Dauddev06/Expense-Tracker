@@ -33,7 +33,7 @@ export default async function ExpectedPage({ searchParams }: PageProps<"/expecte
     listPlanned(user.id, chapter),
     getBalances(user.id),
     getUserAccounts(user.id),
-    // A new month never hides unpaid bills: they show up here until paid
+    // A new month never hides unpaid expected expenses: they show up here until paid
     isThisMonth ? listCarriedOver(user.id, chapter) : Promise.resolve([]),
   ]);
   const today = todayString();
@@ -45,7 +45,7 @@ export default async function ExpectedPage({ searchParams }: PageProps<"/expecte
     <div className="space-y-6">
       <PageHeader
         title="Expected expenses"
-        description="Bills and costs you plan to pay this month."
+        description="Payments you know are coming this month, like rent or school fees."
         action={
           <Link href={`/expected/new?chapter=${chapter}`} className="btn-primary">
             Add expected expense
@@ -70,14 +70,14 @@ export default async function ExpectedPage({ searchParams }: PageProps<"/expecte
       {items.length === 0 ? (
         <EmptyState
           icon="calendar"
-          message={`Nothing planned for ${chapterLabel(chapter)}. Add bills like rent or electricity so you know what's coming.`}
+          message={`Nothing planned for ${chapterLabel(chapter)}. Add what you expect to pay, like rent or electricity, so nothing surprises you.`}
           actionHref={`/expected/new?chapter=${chapter}`}
           actionLabel="Add expected expense"
         />
       ) : (
         <>
           <div className="grid grid-cols-3 gap-3">
-            <StatCard compact label="To pay" value={formatMoney(summary.stillToPay)} />
+            <StatCard compact label="Still to pay" value={formatMoney(summary.stillToPay)} />
             <StatCard compact label="Paid" value={formatMoney(summary.paid)} />
             <StatCard compact label="Total" value={formatMoney(summary.total)} />
           </div>

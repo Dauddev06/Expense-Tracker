@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import { listSpendings } from "@/lib/services/spending.service";
 import { getAllAccountNames } from "@/lib/services/savings-account.service";
-import { formatMoney, getCategory } from "@/lib/constants";
+import { formatMoney } from "@/lib/constants";
 import { accountLabel } from "@/lib/accounts";
 import { chapterLabel, friendlyDate, readChapterParam, todayString } from "@/lib/dates";
 import { ChapterNav } from "@/components/chapter-nav";
@@ -59,16 +59,15 @@ export default async function SpendingsPage({ searchParams }: PageProps<"/spendi
           </div>
           <ul className="-my-3 divide-y divide-line-soft">
             {spendings.map((s) => {
-              const cat = getCategory(s.category);
               return (
                 <li key={s.id}>
                   {/* Each row links to the DYNAMIC route /spendings/[id] */}
                   <Link href={`/spendings/${s.id}`} className="list-row -mx-2 rounded-xl px-2 hover:bg-surface-2">
-                    <IconTile name={cat.icon} tone={cat.tile} />
+                    <IconTile name="receipt" tone="bg-negative-soft text-negative" />
                     <span className="min-w-0 flex-1">
                       <span className="row-title block truncate">{s.title}</span>
                       <span className="row-meta block">
-                        {friendlyDate(s.spentOn, today)} · {cat.label} · {accountLabel(s.account, accounts)}
+                        {friendlyDate(s.spentOn, today)} · from {accountLabel(s.account, accounts)}
                       </span>
                     </span>
                     <span className="font-semibold whitespace-nowrap money-out">

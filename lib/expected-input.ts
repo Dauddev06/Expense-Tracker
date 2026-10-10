@@ -1,5 +1,4 @@
 // ⚠️ TEMPORARY (until Zod in Step 6). Parsers for expected (planned) expenses.
-import { CATEGORY_VALUES } from "@/lib/constants";
 import { isSpendingAccount, type SpendingAccount } from "@/lib/accounts";
 import { chapterOf, currentChapter, isChapter, isDateString, isFutureDate } from "@/lib/dates";
 import type { Frequency } from "@/lib/db/entities/RecurringExpense";
@@ -34,11 +33,10 @@ function isFrequency(value: unknown): value is Frequency {
   return value === "weekly" || value === "biweekly" || value === "monthly";
 }
 
-// Shared checks for title / amount / category / pay-from account
+// Shared checks for title / amount / pay-from account
 function readBasics(b: Record<string, unknown>, fieldErrors: FieldErrors) {
   const title = readText(b.title);
   const amount = readAmount(b.amount);
-  const category = typeof b.category === "string" ? b.category : "";
   // Older clients don't send an account: treat that as "current".
   const account = (b.account === undefined ? "current" : b.account) as SpendingAccount;
   if (!isSpendingAccount(account)) fieldErrors.account = ["Pick which account you'll pay from"];
@@ -47,8 +45,8 @@ function readBasics(b: Record<string, unknown>, fieldErrors: FieldErrors) {
   if (title.length > 120) fieldErrors.title = ["Keep it under 120 characters"];
   const amountProblem = amountError(amount);
   if (amountProblem) fieldErrors.amount = [amountProblem];
-  if (!CATEGORY_VALUES.includes(category as never)) fieldErrors.category = ["Pick a category"];
-  return { title, amount, category, account };
+  // Categories were removed from the app; the database column gets "other"
+  return { title, amount, category: "other", account };
 }
 
 export type ExpectedInput = {

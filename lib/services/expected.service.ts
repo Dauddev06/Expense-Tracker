@@ -4,7 +4,7 @@ import type { PlannedExpense } from "@/lib/db/entities/PlannedExpense";
 import type { Frequency, RecurringExpense } from "@/lib/db/entities/RecurringExpense";
 import type { Spending } from "@/lib/db/entities/Spendings";
 import type { SpendingAccount } from "@/lib/accounts";
-import { chapterOf, currentChapter, dayInChapter, todayString } from "@/lib/dates";
+import { chapterOf, currentChapter, todayString } from "@/lib/dates";
 import type {
   ExpectedInput,
   PayInput,
@@ -84,35 +84,32 @@ function toRecurringDTO(r: RecurringExpense): RecurringDTO {
 // has started by then. Safe to call on every page load ("idempotent"):
 // the unique (recurringExpenseId, dueDate) constraint + ON CONFLICT DO
 // NOTHING means rows that already exist are simply skipped.
+//
+// ONE SQL statement reads the templates AND inserts the rows. (Reading them
+// first and inserting after would be two trips to the database, and on a
+// hosted database every trip costs time.) The due days are the same as
+// DUE_DAYS above: unnest() turns the array of days into one row per day.
+// ($2::varchar tells Postgres the type of $2: it is used in two places and
+// can't guess on its own.)
 export async function ensureChapterOccurrences(userId: string, chapter: string): Promise<void> {
   const ds = await getDataSource();
-  const templates = await ds.getRepository<RecurringExpense>("RecurringExpense").find({
-    // "YYYY-MM" strings sort like dates, so <= works
-    where: { userId, active: true, startChapter: LessThanOrEqual(chapter) },
-  });
-  if (templates.length === 0) return;
-
-  const rows = templates.flatMap((t) =>
-    DUE_DAYS[t.frequency].map((day) => ({
-      userId,
-      chapter,
-      title: t.title,
-      amount: t.amount,
-      category: t.category,
-      account: t.account,
-      dueDate: dayInChapter(chapter, day),
-      status: "pending" as const,
-      recurringExpenseId: t.id,
-      spendingId: null,
-    })),
+  await ds.query(
+    `INSERT INTO planned_expenses
+       ("userId", chapter, title, amount, category, account, "dueDate", status, "recurringExpenseId")
+     SELECT r."userId", $2::varchar, r.title, r.amount, r.category, r.account,
+            to_date($2::varchar || '-' || lpad(day::text, 2, '0'), 'YYYY-MM-DD'), 'pending', r.id
+       FROM recurring_expenses r
+       CROSS JOIN LATERAL unnest(
+         CASE r.frequency
+           WHEN 'weekly' THEN ARRAY[${DUE_DAYS.weekly.join(", ")}]
+           WHEN 'biweekly' THEN ARRAY[${DUE_DAYS.biweekly.join(", ")}]
+           ELSE ARRAY[${DUE_DAYS.monthly.join(", ")}]
+         END
+       ) AS day
+      WHERE r."userId" = $1 AND r.active AND r."startChapter" <= $2::varchar
+     ON CONFLICT ("recurringExpenseId", "dueDate") DO NOTHING`,
+    [userId, chapter],
   );
-  await ds
-    .createQueryBuilder()
-    .insert()
-    .into("PlannedExpense")
-    .values(rows)
-    .orIgnore() // ON CONFLICT DO NOTHING
-    .execute();
 }
 
 export async function listPlanned(userId: string, chapter: string): Promise<PlannedDTO[]> {
@@ -127,7 +124,8 @@ export async function listPlanned(userId: string, chapter: string): Promise<Plan
 
 export async function getPlanned(userId: string, id: string): Promise<PlannedDTO | null> {
   const repo = await getRepo("PlannedExpense");
-  const row = await repo.findOne({
+  // find() + [0], not findOne(): with `relations`, findOne() runs two queries
+  const [row] = await repo.find({
     where: { id, userId, status: In(["pending", "done"]) },
     relations: { spending: true, recurringExpense: true },
   });
@@ -179,16 +177,14 @@ export async function createExpected(userId: string, input: ExpectedInput): Prom
   if (input.frequency === "once") {
     const repo = await getRepo("PlannedExpense");
     const chapter = chapterOf(input.dueDate!);
-    await repo.save(
-      repo.create({ ...basics, chapter, dueDate: input.dueDate!, status: "pending", recurringExpenseId: null }),
-    );
+    // insert(), not save(): save() wraps a single INSERT in its own
+    // transaction (START + INSERT + COMMIT = 3 trips to the database).
+    await repo.insert({ ...basics, chapter, dueDate: input.dueDate!, status: "pending", recurringExpenseId: null });
     return { chapter };
   }
 
   const repo = await getRepo("RecurringExpense");
-  await repo.save(
-    repo.create({ ...basics, frequency: input.frequency, active: true, startChapter: input.startChapter! }),
-  );
+  await repo.insert({ ...basics, frequency: input.frequency, active: true, startChapter: input.startChapter! });
   await ensureChapterOccurrences(userId, input.startChapter!);
   return { chapter: input.startChapter! };
 }
@@ -209,17 +205,21 @@ export async function updatePlanned(
   if (row.account !== input.account) {
     await assertOwnAccounts((await getDataSource()).manager, userId, [input.account]);
   }
-  row.title = input.title;
-  row.amount = input.amount;
-  row.category = input.category;
-  row.account = input.account;
+  const changes: Partial<PlannedExpense> = {
+    title: input.title,
+    amount: input.amount,
+    category: input.category,
+    account: input.account,
+  };
   // A repeating occurrence keeps its day (moving it would make the
   // template create a new one on the old day). One-time items can move.
   if (!row.recurringExpenseId && input.dueDate) {
-    row.dueDate = input.dueDate;
-    row.chapter = chapterOf(input.dueDate);
+    changes.dueDate = input.dueDate;
+    changes.chapter = chapterOf(input.dueDate);
   }
-  await repo.save(row);
+  // update() is one UPDATE. save() would re-read the row and wrap it in a
+  // transaction first: 4 trips to the database instead of 1.
+  await repo.update({ id, userId }, changes);
   return getPlanned(userId, id);
 }
 

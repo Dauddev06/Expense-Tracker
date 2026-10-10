@@ -2,19 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
-import { CATEGORIES } from "@/lib/constants";
+import { useForm } from "react-hook-form";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { usePrefetch } from "@/components/form/use-prefetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
-import { ChoiceChips } from "@/components/form/choice-chips";
 import { PayFromField } from "@/components/form/pay-from-field";
 import type { SpendingAccount } from "@/lib/accounts";
 import { FormError } from "@/components/form/form-error";
 import { useToday } from "@/components/form/use-today";
 import { chapterEnd } from "@/lib/dates";
 
-type Values = { title: string; amount: number; category: string; account: SpendingAccount; dueDate: string };
+type Values = { title: string; amount: number; account: SpendingAccount; dueDate: string };
 
 type Props = {
   id: string;
@@ -25,6 +24,7 @@ type Props = {
 // Edit ONE expected expense (one month only).
 export function PlannedEditForm({ id, repeating, initial }: Props) {
   const router = useRouter();
+  usePrefetch(`/expected?chapter=${initial.dueDate.slice(0, 7)}`); // where "Save" goes
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const { today } = useToday();
@@ -79,20 +79,6 @@ export function PlannedEditForm({ id, repeating, initial }: Props) {
         error={errors.amount?.message}
       />
 
-      <Controller
-        name="category"
-        control={control}
-        render={({ field }) => (
-          <ChoiceChips
-            label="Category"
-            value={field.value}
-            onChange={field.onChange}
-            onBlur={field.onBlur}
-            options={CATEGORIES}
-            error={errors.category?.message}
-          />
-        )}
-      />
 
       <PayFromField control={control} error={errors.account?.message} />
 

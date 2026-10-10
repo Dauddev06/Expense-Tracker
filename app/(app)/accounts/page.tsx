@@ -35,7 +35,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
     <div className="space-y-6">
       <PageHeader
         title="Accounts"
-        description="Tap an account to see its bills, loans and activity."
+        description="Tap an account to see what's still to pay from it, its loans and its activity."
         action={
           <Link href="/accounts/new" className="btn-secondary">
             <Icon name="plus" className="size-4" />

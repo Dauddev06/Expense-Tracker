@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { CATEGORIES, formatMoney } from "@/lib/constants";
+import { formatMoney } from "@/lib/constants";
 import {
   accountLabel,
   balanceOf,
@@ -14,10 +14,10 @@ import {
 } from "@/lib/accounts";
 import { useAccounts } from "@/components/accounts-context";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { usePrefetch } from "@/components/form/use-prefetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { AccountPicker } from "@/components/form/account-picker";
-import { ChoiceChips } from "@/components/form/choice-chips";
 import { DateField } from "@/components/form/date-field";
 import { EffectPreview } from "@/components/form/effect-preview";
 import { FormError } from "@/components/form/form-error";
@@ -26,7 +26,6 @@ import { useToday } from "@/components/form/use-today";
 export type SpendingFormValues = {
   title: string;
   amount: number;
-  category: string;
   spentOn: string;
   note: string;
   account: SpendingAccount;
@@ -43,6 +42,8 @@ type Props = {
 
 export function SpendingForm({ mode, spendingId, defaultValues, balances, presetAccount }: Props) {
   const router = useRouter();
+  // where "Save" goes: the list (new spending) or this spending (edit)
+  usePrefetch(mode === "create" ? "/spendings" : `/spendings/${spendingId}`);
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const { today, yesterday } = useToday();
@@ -61,7 +62,6 @@ export function SpendingForm({ mode, spendingId, defaultValues, balances, preset
     defaultValues: defaultValues ?? {
       title: "",
       amount: undefined as unknown as number, // empty input to start with
-      category: "food",
       spentOn: today,
       note: "",
       account: isSpendingAccount(presetAccount) && options.includes(presetAccount) ? presetAccount : "current",
@@ -97,10 +97,18 @@ export function SpendingForm({ mode, spendingId, defaultValues, balances, preset
         ? `Spent ${formatMoney(values.amount)} from ${accountLabel(values.account, accounts)}`
         : "Saved",
     );
-    const saved = data.spending as { id: string };
+    // New spending: back to the list (the month it belongs to), where it
+    // now shows at the top. Edit: back to that spending.
     // Pages are always rendered fresh, so push() alone shows the new data.
     // (An extra router.refresh() here would make the server render twice.)
-    router.push(`/spendings/${mode === "create" ? saved.id : spendingId}`);
+    const month = values.spentOn.slice(0, 7);
+    router.push(
+      mode === "create"
+        ? month === today.slice(0, 7)
+          ? "/spendings"
+          : `/spendings?chapter=${month}`
+        : `/spendings/${spendingId}`,
+    );
   }
 
   return (
@@ -149,21 +157,6 @@ export function SpendingForm({ mode, spendingId, defaultValues, balances, preset
         )}
       />
 
-      <Controller
-        name="category"
-        control={control}
-        rules={{ required: "Pick a category" }}
-        render={({ field }) => (
-          <ChoiceChips
-            label="Category"
-            value={field.value}
-            onChange={field.onChange}
-            onBlur={field.onBlur}
-            options={CATEGORIES}
-            error={errors.category?.message}
-          />
-        )}
-      />
 
       <DateField
         id="spentOn"
