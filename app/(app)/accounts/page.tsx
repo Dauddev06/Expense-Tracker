@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
-import { getBalances, getOwedToSavings } from "@/lib/services/balance.service";
+import { getBalances } from "@/lib/services/balance.service";
 import { listActivity } from "@/lib/services/activity.service";
-import { ACCOUNTS, accountLabel, isAccount } from "@/lib/accounts";
-import { formatMoney } from "@/lib/constants";
+import { getUserAccounts } from "@/lib/services/savings-account.service";
+import { accountLabel, balanceOf, isAccount } from "@/lib/accounts";
 import { todayString } from "@/lib/dates";
 import { BalanceCards } from "@/components/balance-cards";
 import { ActivityList } from "@/components/activity-list";
@@ -14,11 +14,10 @@ import { PageHeader } from "@/components/page-header";
 const ACTIONS: { href: string; label: string; icon: IconName }[] = [
   { href: "/money/add", label: "Add money", icon: "plus-circle" },
   { href: "/money/move", label: "Move money", icon: "move" },
-  { href: "/money/borrow", label: "Borrow from Savings", icon: "arrow-out" },
-  { href: "/money/repay", label: "Repay Savings", icon: "arrow-in" },
+  { href: "/money/borrow", label: "Borrow from savings", icon: "arrow-out" },
+  { href: "/money/repay", label: "Pay savings back", icon: "arrow-in" },
   { href: "/money/sadqa", label: "Give Sadqa", icon: "heart" },
 ];
-
 
 export const metadata = { title: "Accounts" };
 export default async function AccountsPage({ searchParams }: PageProps<"/accounts">) {
@@ -26,40 +25,26 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const filter = isAccount(account) ? account : undefined;
-  const [balances, owedToSavings, activity] = await Promise.all([
-    getBalances(user.id),
-    getOwedToSavings(user.id),
-    listActivity(user.id, { account: filter, limit: 50 }),
-  ]);
+  const [accounts, balances] = await Promise.all([getUserAccounts(user.id), getBalances(user.id)]);
+  // Only filter by accounts the user really has
+  const filter = isAccount(account) && accounts.some((a) => a.value === account) ? account : undefined;
+  const activity = await listActivity(user.id, { account: filter, limit: 50 });
   const today = todayString();
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Accounts"
-        description={
-          <>
-            You have <strong className="text-ink">{formatMoney(balances.total)}</strong> in total.
-          </>
+        description="Tap an account to see its bills, loans and activity."
+        action={
+          <Link href="/accounts/new" className="btn-secondary">
+            <Icon name="plus" className="size-4" />
+            Add a savings account
+          </Link>
         }
       />
 
-      <BalanceCards balances={balances} />
-
-      {owedToSavings > 0 && (
-        <div className="card flex flex-wrap items-center justify-between gap-3 bg-warning-soft ring-warning-line">
-          <p className="flex items-center gap-2 text-warning">
-            <Icon name="alert" />
-            <span>
-              You owe Savings <strong>{formatMoney(owedToSavings)}</strong>.
-            </span>
-          </p>
-          <Link href="/money/repay" className="btn-secondary">
-            Repay Savings
-          </Link>
-        </div>
-      )}
+      <BalanceCards cards={accounts.map((info) => ({ info, balance: balanceOf(balances, info.value) }))} />
 
       <section aria-labelledby="actions-title">
         <h2 id="actions-title" className="card-title mb-3">
@@ -70,7 +55,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
             <Link
               key={action.href}
               href={action.href}
-              className="card flex min-h-24 flex-col items-start justify-between gap-3 p-4 text-sm font-semibold text-ink transition last:col-span-2 hover:ring-brand/40 sm:p-4 sm:last:col-span-1"
+              className="card flex min-h-24 flex-col items-start justify-between gap-3 p-4 text-sm font-medium text-ink transition last:col-span-2 hover:ring-brand/40 sm:p-4 sm:last:col-span-1"
             >
               <IconTile name={action.icon} tone="bg-brand-soft text-brand-ink" size="sm" />
               {action.label}
@@ -81,7 +66,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
 
       <section aria-labelledby="activity-title" className="card">
         <h2 id="activity-title" className="card-title">
-          {filter ? `${accountLabel(filter)} activity` : "All activity"}
+          {filter ? `${accountLabel(filter, accounts)} activity` : "All activity"}
         </h2>
         <nav aria-label="Show activity for" className="mt-3 mb-5 flex flex-wrap gap-2">
           <Link
@@ -91,7 +76,7 @@ export default async function AccountsPage({ searchParams }: PageProps<"/account
           >
             All
           </Link>
-          {ACCOUNTS.map((a) => (
+          {accounts.map((a) => (
             <Link
               key={a.value}
               href={`/accounts?account=${a.value}`}

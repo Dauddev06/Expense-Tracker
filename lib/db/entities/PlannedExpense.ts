@@ -13,6 +13,7 @@ import {
 import type { User } from "./Users";
 import type { RecurringExpense } from "./RecurringExpense";
 import type { Spending } from "./Spendings";
+import type { SpendingAccount } from "../../accounts";
 import { moneyTransformer } from "../transformers";
 
 // "pending" = still to pay, "done" = paid (a Spending was created),
@@ -50,6 +51,11 @@ export class PlannedExpense {
 
   @Column({ type: "date" })
   dueDate!: string;
+
+  // Which account it will be paid from (shown on that account's page).
+  // The default makes every item that existed before this column "current".
+  @Column({ type: "varchar", length: 20, default: "current" })
+  account!: SpendingAccount;
 
   @Column({ type: "varchar", length: 20, default: "pending" })
   status!: PlannedStatus;

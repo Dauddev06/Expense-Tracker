@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { InstallAppButton } from "@/components/install-app-button";
 import { RegisterForm } from "./register-form";
 
 
@@ -20,7 +19,6 @@ export default function RegisterPage() {
           </Link>
         </p>
       </div>
-      <InstallAppButton />
     </>
   );
 }

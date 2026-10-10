@@ -99,7 +99,6 @@ export function IncomeForm({ chapter, balances, sadqaPercent, incomeId, initial,
       return;
     }
     router.push(`/income?chapter=${chapter}`);
-    router.refresh();
   }
 
   return (

@@ -6,6 +6,7 @@ import type { SpendingInput } from "@/lib/spending-input";
 import type { SpendingAccount } from "@/lib/accounts";
 import { chapterEnd, chapterStart } from "@/lib/dates";
 import { assertNoNegativeBalance, moneyTransaction } from "./balance.service";
+import { assertOwnAccounts } from "./savings-account.service";
 
 // What we send to the browser. Plain data only (no class instances, no Dates)
 export type SpendingDTO = {
@@ -61,6 +62,7 @@ export async function createSpending(
   // Save + "is there enough money?" check in ONE transaction:
   // if the account would go below 0 the insert is rolled back.
   return moneyTransaction(userId, async (m) => {
+    await assertOwnAccounts(m, userId, [input.account]);
     const repo = m.getRepository<Spending>("Spending");
     const saved = await repo.save(repo.create({ ...input, userId }));
     await assertNoNegativeBalance(m, userId, [
@@ -88,6 +90,7 @@ export async function updateSpending(
     const repo = m.getRepository<Spending>("Spending");
     const existing = await repo.findOne({ where: { id, userId } });
     if (!existing) return null;
+    if (existing.account !== input.account) await assertOwnAccounts(m, userId, [input.account]);
 
     repo.merge(existing, input); // copy the new values onto the loaded entity
     const saved = await repo.save(existing);

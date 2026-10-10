@@ -1,4 +1,4 @@
-import { In, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
+import { In, LessThan, LessThanOrEqual, MoreThanOrEqual } from "typeorm";
 import { getDataSource, getRepo } from "@/lib/db/data-source";
 import type { PlannedExpense } from "@/lib/db/entities/PlannedExpense";
 import type { Frequency, RecurringExpense } from "@/lib/db/entities/RecurringExpense";
@@ -12,6 +12,7 @@ import type {
   RecurringInput,
 } from "@/lib/expected-input";
 import { assertNoNegativeBalance, moneyTransaction } from "./balance.service";
+import { assertOwnAccounts } from "./savings-account.service";
 import { FieldError } from "./errors";
 
 // Which days of the month each repeating expense is due on.
@@ -29,6 +30,7 @@ export type PlannedDTO = {
   amount: number;
   category: string;
   dueDate: string;
+  account: SpendingAccount; // the account it will be paid from
   status: "pending" | "done";
   frequency: Frequency | null; // null = one-time
   recurringExpenseId: string | null;
@@ -41,6 +43,7 @@ export type RecurringDTO = {
   title: string;
   amount: number;
   category: string;
+  account: SpendingAccount;
   frequency: Frequency;
   active: boolean;
   startChapter: string;
@@ -54,6 +57,7 @@ function toPlannedDTO(p: PlannedExpense): PlannedDTO {
     amount: p.amount,
     category: p.category,
     dueDate: p.dueDate,
+    account: p.account,
     status: p.status === "done" ? "done" : "pending",
     frequency: p.recurringExpense?.frequency ?? null,
     recurringExpenseId: p.recurringExpenseId,
@@ -69,6 +73,7 @@ function toRecurringDTO(r: RecurringExpense): RecurringDTO {
     title: r.title,
     amount: r.amount,
     category: r.category,
+    account: r.account,
     frequency: r.frequency,
     active: r.active,
     startChapter: r.startChapter,
@@ -94,6 +99,7 @@ export async function ensureChapterOccurrences(userId: string, chapter: string):
       title: t.title,
       amount: t.amount,
       category: t.category,
+      account: t.account,
       dueDate: dayInChapter(chapter, day),
       status: "pending" as const,
       recurringExpenseId: t.id,
@@ -128,10 +134,47 @@ export async function getPlanned(userId: string, id: string): Promise<PlannedDTO
   return row ? toPlannedDTO(row) : null;
 }
 
+// Still unpaid from months BEFORE `chapter`. A new month never hides them:
+// they stay on the list until you pay or delete them.
+export async function listCarriedOver(userId: string, chapter: string): Promise<PlannedDTO[]> {
+  const repo = await getRepo("PlannedExpense");
+  const rows = await repo.find({
+    where: { userId, status: "pending", chapter: LessThan(chapter) },
+    relations: { spending: true, recurringExpense: true },
+    order: { dueDate: "ASC", createdAt: "ASC" },
+  });
+  return rows.map(toPlannedDTO);
+}
+
+// Everything still to pay up to this month (earlier months too), from one account
+export async function listPendingForAccount(userId: string, account: string): Promise<PlannedDTO[]> {
+  await ensureChapterOccurrences(userId, currentChapter());
+  const repo = await getRepo("PlannedExpense");
+  const rows = await repo.find({
+    where: {
+      userId,
+      status: "pending",
+      account: account as SpendingAccount,
+      chapter: LessThanOrEqual(currentChapter()),
+    },
+    relations: { spending: true, recurringExpense: true },
+    order: { dueDate: "ASC", createdAt: "ASC" },
+  });
+  return rows.map(toPlannedDTO);
+}
+
 // Adds a one-time item, or a repeating template (+ its first month).
 // Returns the month to show afterwards.
 export async function createExpected(userId: string, input: ExpectedInput): Promise<{ chapter: string }> {
-  const basics = { userId, title: input.title, amount: input.amount, category: input.category };
+  const ds = await getDataSource();
+  await assertOwnAccounts(ds.manager, userId, [input.account]);
+  const basics = {
+    userId,
+    title: input.title,
+    amount: input.amount,
+    category: input.category,
+    account: input.account,
+  };
 
   if (input.frequency === "once") {
     const repo = await getRepo("PlannedExpense");
@@ -163,9 +206,13 @@ export async function updatePlanned(
     throw new FieldError(null, "This is already paid. Undo the payment first to change it.");
   }
 
+  if (row.account !== input.account) {
+    await assertOwnAccounts((await getDataSource()).manager, userId, [input.account]);
+  }
   row.title = input.title;
   row.amount = input.amount;
   row.category = input.category;
+  row.account = input.account;
   // A repeating occurrence keeps its day (moving it would make the
   // template create a new one on the old day). One-time items can move.
   if (!row.recurringExpenseId && input.dueDate) {
@@ -201,6 +248,7 @@ export async function markPlannedPaid(
     const row = await plannedRepo.findOne({ where: { id, userId, status: In(["pending", "done"]) } });
     if (!row) return false;
     if (row.status === "done") throw new FieldError(null, "This is already marked as paid.");
+    await assertOwnAccounts(m, userId, [input.account]);
 
     const spendingRepo = m.getRepository<Spending>("Spending");
     const spending = await spendingRepo.save(
@@ -275,6 +323,7 @@ export async function updateRecurring(
     const plannedRepo = m.getRepository<PlannedExpense>("PlannedExpense");
     const template = await repo.findOne({ where: { id, userId } });
     if (!template) return null;
+    if (template.account !== input.account) await assertOwnAccounts(m, userId, [input.account]);
 
     const frequencyChanged = template.frequency !== input.frequency;
     repo.merge(template, input);
@@ -288,7 +337,7 @@ export async function updateRecurring(
     } else {
       await plannedRepo.update(
         { ...future, status: "pending" },
-        { title: input.title, amount: input.amount, category: input.category },
+        { title: input.title, amount: input.amount, category: input.category, account: input.account },
       );
     }
     return toRecurringDTO(template);

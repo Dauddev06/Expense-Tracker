@@ -10,6 +10,7 @@ import {
   type Relation,
 } from "typeorm";
 import type { User } from "./Users";
+import type { SpendingAccount } from "../../accounts";
 import { moneyTransformer } from "../transformers";
 
 export type Frequency = "weekly" | "biweekly" | "monthly";
@@ -37,6 +38,11 @@ export class RecurringExpense {
 
   @Column({ type: "varchar", length: 20 })
   frequency!: Frequency;
+
+  // Which account it will be paid from (shown on that account's page).
+  // The default makes every item that existed before this column "current".
+  @Column({ type: "varchar", length: 20, default: "current" })
+  account!: SpendingAccount;
 
   // false = paused: no new occurrences are created
   @Column({ type: "boolean", default: true })

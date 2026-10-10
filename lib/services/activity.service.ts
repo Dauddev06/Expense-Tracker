@@ -2,9 +2,10 @@ import { Between } from "typeorm";
 import { getRepo } from "@/lib/db/data-source";
 import type { LedgerEntry } from "@/lib/db/entities/LedgerEntry";
 import type { Spending } from "@/lib/db/entities/Spendings";
-import { accountLabel, type AccountId } from "@/lib/accounts";
+import { accountLabel, type AccountId, type AccountInfo } from "@/lib/accounts";
 import { formatMoney } from "@/lib/constants";
 import { isMoneyAction } from "@/lib/money-input";
+import { getAllAccountNames } from "./savings-account.service";
 
 // One line in an activity list, ready to show. Built on the server so the
 // browser never sees internal names like "savings_borrow".
@@ -26,10 +27,10 @@ type Sortable = ActivityItem & { createdAt: number };
 const MONEY_IN = ["opening", "deposit", "income", "loan_taken", "loan_payment_in"];
 const MONEY_OUT = ["sadqa_given", "loan_given", "loan_payment_out"];
 
-function sentenceFor(e: LedgerEntry): string {
+function sentenceFor(e: LedgerEntry, accounts: AccountInfo[]): string {
   const amount = formatMoney(e.amount);
-  const from = e.fromAccount ? accountLabel(e.fromAccount) : "";
-  const to = e.toAccount ? accountLabel(e.toAccount) : "";
+  const from = e.fromAccount ? accountLabel(e.fromAccount, accounts) : "";
+  const to = e.toAccount ? accountLabel(e.toAccount, accounts) : "";
   const person = e.loan?.personName ?? "someone";
 
   switch (e.type) {
@@ -40,9 +41,9 @@ function sentenceFor(e: LedgerEntry): string {
     case "transfer":
       return `Moved ${amount} from ${from} to ${to}`;
     case "savings_borrow":
-      return `Borrowed ${amount} from Savings into ${to}`;
+      return `Borrowed ${amount} from ${from} into ${to}`;
     case "savings_repay":
-      return `Paid back ${amount} to Savings from ${from}`;
+      return `Paid back ${amount} to ${to} from ${from}`;
     case "income":
       return `Received ${amount} ${e.income?.title ?? "income"} into ${to}`;
     case "sadqa_allocation":
@@ -61,13 +62,13 @@ function sentenceFor(e: LedgerEntry): string {
 }
 
 // What removing a hand-made movement will do, in plain words.
-function removeEffect(e: LedgerEntry): string {
+function removeEffect(e: LedgerEntry, accounts: AccountInfo[]): string {
   const amount = formatMoney(e.amount);
   if (e.type === "deposit")
-    return `This will take ${amount} back out of ${accountLabel(e.toAccount!)}.`;
+    return `This will take ${amount} back out of ${accountLabel(e.toAccount!, accounts)}.`;
   if (e.type === "sadqa_given")
     return `This will put ${amount} back into Sadqa.`;
-  return `This will move ${amount} back from ${accountLabel(e.toAccount!)} to ${accountLabel(e.fromAccount!)}.`;
+  return `This will move ${amount} back from ${accountLabel(e.toAccount!, accounts)} to ${accountLabel(e.fromAccount!, accounts)}.`;
 }
 
 function hrefFor(e: LedgerEntry): string | null {
@@ -77,7 +78,7 @@ function hrefFor(e: LedgerEntry): string | null {
   return null;
 }
 
-function fromLedger(e: LedgerEntry, account?: AccountId): Sortable {
+function fromLedger(e: LedgerEntry, accounts: AccountInfo[], account?: AccountId): Sortable {
   let flow: ActivityItem["flow"];
   if (account) flow = e.toAccount === account ? "in" : "out";
   else if (MONEY_IN.includes(e.type)) flow = "in";
@@ -87,22 +88,22 @@ function fromLedger(e: LedgerEntry, account?: AccountId): Sortable {
   return {
     key: `l-${e.id}`,
     date: e.occurredOn,
-    sentence: sentenceFor(e),
+    sentence: sentenceFor(e, accounts),
     amount: e.amount,
     flow,
     href: hrefFor(e),
     removable: isMoneyAction(e.type)
-      ? { id: e.id, effect: removeEffect(e) }
+      ? { id: e.id, effect: removeEffect(e, accounts) }
       : null,
     createdAt: e.createdAt.getTime(),
   };
 }
 
-function fromSpending(s: Spending): Sortable {
+function fromSpending(s: Spending, accounts: AccountInfo[]): Sortable {
   return {
     key: `s-${s.id}`,
     date: s.spentOn,
-    sentence: `Spent ${formatMoney(s.amount)} on ${s.title} (${accountLabel(s.account)})`,
+    sentence: `Spent ${formatMoney(s.amount)} on ${s.title} (${accountLabel(s.account, accounts)})`,
     amount: s.amount,
     flow: "out",
     href: `/spendings/${s.id}`,
@@ -145,7 +146,7 @@ export async function listActivity(
     ...(from && to ? { spentOn: Between(from, to) } : {}),
   };
 
-  const [entries, spendings] = await Promise.all([
+  const [entries, spendings, accounts] = await Promise.all([
     query.getMany(),
     // Sadqa can't be spent, so there are no Sadqa spendings to show
     account === "sadqa"
@@ -155,11 +156,12 @@ export async function listActivity(
           order: { spentOn: "DESC", createdAt: "DESC" },
           take: limit,
         }),
+    getAllAccountNames(userId),
   ]);
 
   const items: Sortable[] = [
-    ...entries.map((e) => fromLedger(e, account)),
-    ...spendings.map(fromSpending),
+    ...entries.map((e) => fromLedger(e, accounts, account)),
+    ...spendings.map((s) => fromSpending(s, accounts)),
   ];
   items.sort((a, b) =>
     a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1,

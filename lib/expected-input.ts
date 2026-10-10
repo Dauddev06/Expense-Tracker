@@ -34,24 +34,28 @@ function isFrequency(value: unknown): value is Frequency {
   return value === "weekly" || value === "biweekly" || value === "monthly";
 }
 
-// Shared checks for title / amount / category
+// Shared checks for title / amount / category / pay-from account
 function readBasics(b: Record<string, unknown>, fieldErrors: FieldErrors) {
   const title = readText(b.title);
   const amount = readAmount(b.amount);
   const category = typeof b.category === "string" ? b.category : "";
+  // Older clients don't send an account: treat that as "current".
+  const account = (b.account === undefined ? "current" : b.account) as SpendingAccount;
+  if (!isSpendingAccount(account)) fieldErrors.account = ["Pick which account you'll pay from"];
 
   if (title.length < 1) fieldErrors.title = ["Please say what it is for"];
   if (title.length > 120) fieldErrors.title = ["Keep it under 120 characters"];
   const amountProblem = amountError(amount);
   if (amountProblem) fieldErrors.amount = [amountProblem];
   if (!CATEGORY_VALUES.includes(category as never)) fieldErrors.category = ["Pick a category"];
-  return { title, amount, category };
+  return { title, amount, category, account };
 }
 
 export type ExpectedInput = {
   title: string;
   amount: number;
   category: string;
+  account: SpendingAccount;
   frequency: FrequencyChoice;
   dueDate: string | null; // one-time items only
   startChapter: string | null; // repeating items only: first month
@@ -90,6 +94,7 @@ export type PlannedEditInput = {
   title: string;
   amount: number;
   category: string;
+  account: SpendingAccount;
   dueDate: string | null;
 };
 
@@ -130,6 +135,7 @@ export type RecurringInput = {
   title: string;
   amount: number;
   category: string;
+  account: SpendingAccount;
   frequency: Frequency;
   active: boolean;
 };

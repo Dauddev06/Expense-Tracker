@@ -1,6 +1,6 @@
 import { Icon } from "@/components/icons";
 
-// The My Expense Manager logo: a wallet on the brand gradient (same as the app icon)
+// The Pocket Manager logo: a wallet on a brand-coloured square
 export function BrandMark({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const box =
     size === "sm"
@@ -11,7 +11,7 @@ export function BrandMark({ size = "md" }: { size?: "sm" | "md" | "lg" }) {
   const icon = size === "sm" ? "size-4" : size === "lg" ? "size-7" : "size-5";
   return (
     <span
-      className={`flex shrink-0 items-center justify-center bg-linear-to-br from-hero-from to-hero-to text-on-brand shadow-sm shadow-brand/30 ${box}`}
+      className={`flex shrink-0 items-center justify-center bg-brand text-on-brand shadow-sm shadow-brand/30 ${box}`}
     >
       <Icon name="wallet" className={icon} />
     </span>
@@ -24,7 +24,7 @@ export function Brand({ size = "sm" }: { size?: "sm" | "md" }) {
     <span className="inline-flex items-center gap-2.5">
       <BrandMark size={size} />
       <span
-        className={`font-extrabold tracking-tight text-ink ${size === "md" ? "text-2xl" : "text-lg"}`}
+        className={`font-semibold tracking-tight text-ink ${size === "md" ? "text-2xl" : "text-lg"}`}
       >
         Pocket Manager
       </span>

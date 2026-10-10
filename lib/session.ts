@@ -1,8 +1,9 @@
 // ⚠️ TEMPORARY (Steps 2-4). NextAuth replaces this whole file in Step 5.
 import { randomBytes } from "crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { getRepo } from "@/lib/db/data-source";
-import { getUserById, type PublicUser } from "@/lib/services/user.service";
+import type { PublicUser } from "@/lib/services/user.service";
 
 const COOKIE_NAME = "session_token";
 const SESSION_DAYS = 7;
@@ -24,17 +25,22 @@ export async function createSession(userId: string) {
   });
 }
 
-export async function getCurrentUser(): Promise<PublicUser | null> {
+// The layout AND the page both ask "who is logged in?". cache() makes that
+// ONE database query per request instead of one per call. (Each query costs a
+// round trip to the database, which is slow on a hosted server.)
+export const getCurrentUser = cache(async (): Promise<PublicUser | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
   if (!token) return null;
 
+  // The session and its user in ONE query (a JOIN), not two
   const repo = await getRepo("Session");
-  const session = await repo.findOne({ where: { token } });
-  if (!session || session.expiresAt < new Date()) return null;
+  const session = await repo.findOne({ where: { token }, relations: { user: true } });
+  if (!session || session.expiresAt < new Date() || !session.user) return null;
 
-  return getUserById(session.userId);
-}
+  const { id, name, email } = session.user;
+  return { id, name, email };
+});
 
 export async function destroySession() {
   const cookieStore = await cookies();
@@ -44,4 +50,12 @@ export async function destroySession() {
     await repo.delete({ token });
   }
   cookieStore.delete(COOKIE_NAME);
+}
+
+// Only "is there a login cookie?" - no database query, so it's instant.
+// Good enough to choose between the landing page and the app: if the
+// session turns out to be expired, the app's layout sends you to /login.
+export async function hasSessionCookie(): Promise<boolean> {
+  const cookieStore = await cookies();
+  return cookieStore.has(COOKIE_NAME);
 }

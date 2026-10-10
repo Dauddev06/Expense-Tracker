@@ -6,7 +6,8 @@ import { FormCard } from "@/components/page-header";
 
 
 export const metadata = { title: "Add a loan" };
-export default async function NewLoanPage() {
+export default async function NewLoanPage({ searchParams }: PageProps<"/loans/new">) {
+  const { account } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -14,7 +15,7 @@ export default async function NewLoanPage() {
 
   return (
     <FormCard back={{ href: "/loans", label: "Back to loans" }} title="Add a loan">
-      <LoanForm balances={balances} />
+      <LoanForm balances={balances} presetAccount={typeof account === "string" ? account : undefined} />
     </FormCard>
   );
 }

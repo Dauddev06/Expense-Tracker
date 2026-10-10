@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { formatMoney } from "@/lib/constants";
-import { SPENDING_ACCOUNTS, type Balances, type SpendingAccount } from "@/lib/accounts";
+import { spendingAccountsOf, type Balances, type SpendingAccount } from "@/lib/accounts";
+import { useAccounts } from "@/components/accounts-context";
 import type { LoanDirection } from "@/lib/db/entities/Loan";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
 import { useToast } from "@/components/toast";
@@ -18,7 +19,13 @@ import { useToday } from "@/components/form/use-today";
 type Values = { amount: number; account: SpendingAccount; paidOn: string; note: string };
 
 type Props = {
-  loan: { id: string; personName: string; direction: LoanDirection; outstanding: number };
+  loan: {
+    id: string;
+    personName: string;
+    direction: LoanDirection;
+    outstanding: number;
+    account: SpendingAccount; // the account the loan used: picked first
+  };
   balances: Balances;
 };
 
@@ -29,6 +36,7 @@ export function LoanPaymentForm({ loan, balances }: Props) {
   const [serverError, setServerError] = useState<string | null>(null);
   const { today, yesterday } = useToday();
   const theyPay = loan.direction === "given"; // they are paying ME back
+  const options = spendingAccountsOf(useAccounts());
 
   const {
     register,
@@ -40,7 +48,12 @@ export function LoanPaymentForm({ loan, balances }: Props) {
     reset,
     formState: { errors, isSubmitting },
   } = useForm<Values>({
-    defaultValues: { amount: loan.outstanding, account: "current", paidOn: today, note: "" },
+    defaultValues: {
+      amount: loan.outstanding,
+      account: options.includes(loan.account) ? loan.account : "current",
+      paidOn: today,
+      note: "",
+    },
   });
   const [amount, account, paidOn] = useWatch({ control, name: ["amount", "account", "paidOn"] });
 
@@ -95,7 +108,7 @@ export function LoanPaymentForm({ loan, balances }: Props) {
             value={field.value}
             onChange={field.onChange}
             onBlur={field.onBlur}
-            options={SPENDING_ACCOUNTS}
+            options={options}
             balances={balances}
             error={errors.account?.message}
           />

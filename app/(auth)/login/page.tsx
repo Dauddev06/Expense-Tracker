@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { InstallAppButton } from "@/components/install-app-button";
 import { LoginForm } from "./login-form";
 
 
@@ -28,7 +27,6 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           </Link>
         </p>
       </div>
-      <InstallAppButton />
     </>
   );
 }

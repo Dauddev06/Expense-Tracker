@@ -7,7 +7,7 @@ import { FormCard } from "@/components/page-header";
 
 export const metadata = { title: "Add expected expense" };
 export default async function NewExpectedPage({ searchParams }: PageProps<"/expected/new">) {
-  const { chapter: chapterParam } = await searchParams;
+  const { chapter: chapterParam, account } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
@@ -15,7 +15,7 @@ export default async function NewExpectedPage({ searchParams }: PageProps<"/expe
 
   return (
     <FormCard back={{ href: `/expected?chapter=${chapter}`, label: "Back to expected expenses" }} title="Add expected expense">
-      <ExpectedForm chapter={chapter} />
+      <ExpectedForm chapter={chapter} presetAccount={typeof account === "string" ? account : undefined} />
     </FormCard>
   );
 }

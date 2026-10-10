@@ -1,8 +1,8 @@
 import type { IconName } from "@/components/icons";
 
-// The four "pots" of money every user has. This is a plain list (not a
-// database table) because every user always has exactly these four.
-// `icon` + `tone` (tile colours) give each account its own look in the UI.
+// The four built-in "pots" of money every user has. On top of these a user
+// can open MORE savings accounts (e.g. "Emergency fund", "Hajj"). Those live
+// in the savings_accounts table and have keys like "sv_k3j9x2ab".
 export const ACCOUNTS = [
   {
     value: "current",
@@ -40,37 +40,116 @@ export const ACCOUNTS = [
   description: string;
 }[];
 
-export type AccountId = (typeof ACCOUNTS)[number]["value"];
-export const ACCOUNT_IDS: AccountId[] = ACCOUNTS.map((a) => a.value);
+export type BuiltinAccountId = (typeof ACCOUNTS)[number]["value"];
+export const BUILTIN_ACCOUNT_IDS: BuiltinAccountId[] = ACCOUNTS.map((a) => a.value);
 
-// Sadqa money can only be GIVEN, so you can't spend or move money with it.
-export const SPENDING_ACCOUNTS = ["current", "savings", "pocket"] as const;
-export type SpendingAccount = (typeof SPENDING_ACCOUNTS)[number];
+// Extra savings accounts: "sv_" + a few random letters/digits (fits varchar(20))
+export type ExtraSavingsId = `sv_${string}`;
+export type AccountId = BuiltinAccountId | ExtraSavingsId;
+
+// Every account except Sadqa (Sadqa money can only be GIVEN).
+// Spend, lend, add and move money with these.
+export type SpendingAccount = Exclude<AccountId, "sadqa">;
 
 // How much is in each account, e.g. { current: 47500, savings: 90000, ... }
+// Extra savings accounts with no money movements yet may be missing:
+// always read with balanceOf().
 export type Balances = Record<AccountId, number>;
 
-export const EMPTY_BALANCES: Balances = {
+export const EMPTY_BALANCES = {
   current: 0,
   savings: 0,
   pocket: 0,
   sadqa: 0,
+} as Balances;
+
+export function balanceOf(balances: Balances, account: AccountId): number {
+  return balances[account] ?? 0;
+}
+
+// Everything the UI needs to show one account. Built per user, because the
+// extra savings accounts (and their names) are different for everyone.
+export type AccountInfo = {
+  value: AccountId;
+  label: string;
+  icon: IconName;
+  tone: string;
+  description: string;
+  kind: BuiltinAccountId; // what it behaves like ("savings" for extra ones)
 };
 
-export function getAccount(value: string) {
-  return ACCOUNTS.find((a) => a.value === value) ?? ACCOUNTS[0];
+const SAVINGS_INFO = ACCOUNTS[1];
+
+// The user's accounts in display order: Current, Savings (+ extra ones), Pocket, Sadqa
+export function buildAccounts(extra: { key: string; name: string }[]): AccountInfo[] {
+  const builtin = (value: BuiltinAccountId): AccountInfo => {
+    const a = ACCOUNTS.find((x) => x.value === value)!;
+    return { ...a, kind: a.value };
+  };
+  return [
+    builtin("current"),
+    builtin("savings"),
+    ...extra.map(
+      (e): AccountInfo => ({
+        value: e.key as ExtraSavingsId,
+        label: e.name,
+        icon: SAVINGS_INFO.icon,
+        tone: SAVINGS_INFO.tone,
+        description: "One of your savings accounts.",
+        kind: "savings",
+      }),
+    ),
+    builtin("pocket"),
+    builtin("sadqa"),
+  ];
 }
 
-export function accountLabel(value: string) {
-  return getAccount(value).label;
+// Only the built-in ones. Enough wherever extra accounts can't appear.
+export const BUILTIN_ACCOUNTS: AccountInfo[] = buildAccounts([]);
+
+export function isBuiltinAccount(value: unknown): value is BuiltinAccountId {
+  return BUILTIN_ACCOUNT_IDS.includes(value as BuiltinAccountId);
 }
 
+const EXTRA_KEY = /^sv_[a-z0-9]{6,16}$/;
+
+export function isExtraSavings(value: unknown): value is ExtraSavingsId {
+  return typeof value === "string" && EXTRA_KEY.test(value);
+}
+
+// Does it LOOK like an account id? (Whether an extra savings account really
+// belongs to the user is checked on the server, in the services.)
 export function isAccount(value: unknown): value is AccountId {
-  return ACCOUNT_IDS.includes(value as AccountId);
+  return isBuiltinAccount(value) || isExtraSavings(value);
 }
 
 export function isSpendingAccount(value: unknown): value is SpendingAccount {
-  return SPENDING_ACCOUNTS.includes(value as SpendingAccount);
+  return isAccount(value) && value !== "sadqa";
+}
+
+export function isSavingsAccount(value: unknown): value is "savings" | ExtraSavingsId {
+  return value === "savings" || isExtraSavings(value);
+}
+
+export function getAccount(value: string, accounts: AccountInfo[] = BUILTIN_ACCOUNTS): AccountInfo {
+  return (
+    accounts.find((a) => a.value === value) ??
+    // An extra savings account we don't know the name of (e.g. closed)
+    (isExtraSavings(value) ? { ...buildAccounts([{ key: value, name: "Savings" }])[2] } : accounts[0])
+  );
+}
+
+export function accountLabel(value: string, accounts?: AccountInfo[]): string {
+  return getAccount(value, accounts).label;
+}
+
+// Filters for the account pickers
+export function spendingAccountsOf(accounts: AccountInfo[]): SpendingAccount[] {
+  return accounts.filter((a) => a.value !== "sadqa").map((a) => a.value as SpendingAccount);
+}
+
+export function savingsAccountsOf(accounts: AccountInfo[]): ("savings" | ExtraSavingsId)[] {
+  return accounts.filter((a) => a.kind === "savings").map((a) => a.value as "savings" | ExtraSavingsId);
 }
 
 // Every kind of money movement we record (stored in ledger_entries.type).
@@ -79,8 +158,8 @@ export const LEDGER_TYPES = [
   "opening", // starting balance of an account
   "deposit", // "Add money"
   "transfer", // "Move money"
-  "savings_borrow", // borrowed from Savings
-  "savings_repay", // paid Savings back
+  "savings_borrow", // borrowed from a savings account
+  "savings_repay", // paid a savings account back
   "income", // income received into Current
   "sadqa_allocation", // part of income set aside: Current -> Sadqa
   "sadqa_given", // Sadqa given away

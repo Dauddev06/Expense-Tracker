@@ -10,6 +10,8 @@ import { applyServerErrors, sendJson } from "@/lib/client-fetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
 import { ChoiceChips } from "@/components/form/choice-chips";
+import { PayFromField } from "@/components/form/pay-from-field";
+import { isSpendingAccount, type SpendingAccount } from "@/lib/accounts";
 import { FormError } from "@/components/form/form-error";
 import { useToday } from "@/components/form/use-today";
 
@@ -17,6 +19,7 @@ type Values = {
   title: string;
   amount: number;
   category: string;
+  account: SpendingAccount;
   frequency: FrequencyChoice;
   dueDate: string;
 };
@@ -29,7 +32,7 @@ const SCHEDULE_HINT: Record<FrequencyChoice, string> = {
 };
 
 // "Add expected expense": something you plan to pay this month (or every month).
-export function ExpectedForm({ chapter }: { chapter: string }) {
+export function ExpectedForm({ chapter, presetAccount }: { chapter: string; presetAccount?: string }) {
   const router = useRouter();
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
@@ -47,6 +50,7 @@ export function ExpectedForm({ chapter }: { chapter: string }) {
       title: "",
       amount: undefined as unknown as number,
       category: "bills",
+      account: isSpendingAccount(presetAccount) ? presetAccount : "current",
       frequency: "once",
       // This month -> today. Another month -> the 1st of that month.
       dueDate: chapter === today.slice(0, 7) ? today : `${chapter}-01`,
@@ -73,7 +77,6 @@ export function ExpectedForm({ chapter }: { chapter: string }) {
         : `Added. It repeats ${frequencyLabel(values.frequency).toLowerCase()}`,
     );
     router.push(`/expected?chapter=${savedChapter}`);
-    router.refresh();
   }
 
   return (
@@ -119,6 +122,8 @@ export function ExpectedForm({ chapter }: { chapter: string }) {
           />
         )}
       />
+
+      <PayFromField control={control} error={errors.account?.message} />
 
       <div>
         <Controller

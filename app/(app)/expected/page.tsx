@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
 import {
   ensureChapterOccurrences,
+  listCarriedOver,
   listPlanned,
   summarizePlanned,
 } from "@/lib/services/expected.service";
+import { getUserAccounts } from "@/lib/services/savings-account.service";
 import { getBalances } from "@/lib/services/balance.service";
 import { formatMoney } from "@/lib/constants";
-import { chapterLabel, readChapterParam, todayString } from "@/lib/dates";
+import { chapterLabel, currentChapter, readChapterParam, todayString } from "@/lib/dates";
 import { ChapterNav } from "@/components/chapter-nav";
 import { EmptyState } from "@/components/empty-state";
 import { PaidList, PendingList } from "@/components/planned-list";
@@ -26,9 +28,13 @@ export default async function ExpectedPage({ searchParams }: PageProps<"/expecte
   const chapter = readChapterParam(chapterParam);
   // Create this month's repeating items first (safe to do on every visit)
   await ensureChapterOccurrences(user.id, chapter);
-  const [items, balances] = await Promise.all([
+  const isThisMonth = chapter === currentChapter();
+  const [items, balances, accounts, carried] = await Promise.all([
     listPlanned(user.id, chapter),
     getBalances(user.id),
+    getUserAccounts(user.id),
+    // A new month never hides unpaid bills: they show up here until paid
+    isThisMonth ? listCarriedOver(user.id, chapter) : Promise.resolve([]),
   ]);
   const today = todayString();
   const pending = items.filter((i) => i.status === "pending");
@@ -48,6 +54,18 @@ export default async function ExpectedPage({ searchParams }: PageProps<"/expecte
       />
 
       <ChapterNav chapter={chapter} basePath="/expected" />
+
+      {carried.length > 0 && (
+        <section className="card ring-warning-line" aria-labelledby="carried-title">
+          <div className="card-header">
+            <h2 id="carried-title" className="card-title">
+              Not paid from earlier months
+            </h2>
+            <span className="row-meta">{carried.length} left</span>
+          </div>
+          <PendingList items={carried} balances={balances} today={today} accounts={accounts} />
+        </section>
+      )}
 
       {items.length === 0 ? (
         <EmptyState
@@ -77,7 +95,7 @@ export default async function ExpectedPage({ searchParams }: PageProps<"/expecte
                 Everything for {chapterLabel(chapter)} is paid.
               </p>
             ) : (
-              <PendingList items={pending} balances={balances} today={today} />
+              <PendingList items={pending} balances={balances} today={today} accounts={accounts} />
             )}
           </section>
 
@@ -89,7 +107,7 @@ export default async function ExpectedPage({ searchParams }: PageProps<"/expecte
                 </h2>
                 <span className="row-meta">{paid.length} done</span>
               </div>
-              <PaidList items={paid} today={today} />
+              <PaidList items={paid} today={today} accounts={accounts} />
             </section>
           )}
         </>

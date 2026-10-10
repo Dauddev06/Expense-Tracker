@@ -15,7 +15,7 @@ export function ChapterNav({ chapter, basePath }: { chapter: string; basePath: s
     <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
       <nav
         aria-label="Choose a month"
-        className="flex w-full items-center gap-1 rounded-2xl bg-surface p-1 shadow-[var(--card-shadow)] ring-1 ring-line sm:w-80"
+        className="flex w-full items-center gap-1 rounded-xl bg-surface p-1 ring-1 ring-line sm:w-80"
       >
         <Link
           href={`${basePath}?chapter=${prev}`}
@@ -25,7 +25,7 @@ export function ChapterNav({ chapter, basePath }: { chapter: string; basePath: s
           <Icon name="chevron-left" />
         </Link>
         <p className="flex min-w-0 flex-1 flex-col items-center leading-tight" aria-live="polite">
-          <span className="text-[15px] font-bold text-ink">{chapterLabel(chapter)}</span>
+          <span className="text-[15px] font-medium text-ink">{chapterLabel(chapter)}</span>
           <span className="text-xs font-medium text-muted">
             {isThisMonth ? "This month" : chapter === shiftChapter(current, -1) ? "Last month" : "Past month"}
           </span>

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
-import { getBalances, getOwedToSavings } from "@/lib/services/balance.service";
+import { getBalances, getOwedBySavings, totalOwed } from "@/lib/services/balance.service";
+import { balanceOf } from "@/lib/accounts";
 import type { MoneyAction } from "@/lib/money-input";
 import { MoneyActionForm } from "@/components/money-action-form";
 import { FormCard } from "@/components/page-header";
@@ -20,13 +21,13 @@ const PAGES: Record<string, { type: MoneyAction; title: string; intro: string }>
   },
   borrow: {
     type: "savings_borrow",
-    title: "Borrow from Savings",
-    intro: "Take money out of Savings for now. We'll remember how much you need to put back.",
+    title: "Borrow from savings",
+    intro: "Take money out of a savings account for now. We'll remember how much you need to put back.",
   },
   repay: {
     type: "savings_repay",
-    title: "Repay Savings",
-    intro: "Put back money you borrowed from Savings.",
+    title: "Pay savings back",
+    intro: "Put back money you borrowed from a savings account.",
   },
   sadqa: {
     type: "sadqa_given",
@@ -44,19 +45,19 @@ export default async function MoneyActionPage({ params, searchParams }: PageProp
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const [balances, owedToSavings] = await Promise.all([
+  const [balances, owedBySavings] = await Promise.all([
     getBalances(user.id),
-    getOwedToSavings(user.id),
+    getOwedBySavings(user.id),
   ]);
 
   return (
     <FormCard back={{ href: "/accounts", label: "Back to accounts" }} title={page.title} intro={page.intro}>
-        {page.type === "savings_repay" && owedToSavings <= 0 ? (
+        {page.type === "savings_repay" && totalOwed(owedBySavings) <= 0 ? (
           <p className="flex items-center gap-2 rounded-xl bg-positive-soft px-3 py-3 text-positive">
             <Icon name="check-circle" />
-            You don&apos;t owe Savings anything right now.
+            You don&apos;t owe any savings account anything right now.
           </p>
-        ) : page.type === "sadqa_given" && balances.sadqa <= 0 ? (
+        ) : page.type === "sadqa_given" && balanceOf(balances, "sadqa") <= 0 ? (
           <p className="rounded-xl bg-surface-2 px-3 py-3 text-ink-2">
             There is no Sadqa set aside right now. When you receive income, part of it is set
             aside here automatically (you can choose the % in Settings).
@@ -65,7 +66,7 @@ export default async function MoneyActionPage({ params, searchParams }: PageProp
           <MoneyActionForm
             type={page.type}
             balances={balances}
-            owedToSavings={owedToSavings}
+            owedBySavings={owedBySavings}
             presetFrom={typeof from === "string" ? from : undefined}
             presetTo={typeof to === "string" ? to : undefined}
           />

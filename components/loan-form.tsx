@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { formatMoney } from "@/lib/constants";
-import { SPENDING_ACCOUNTS, type Balances, type SpendingAccount } from "@/lib/accounts";
+import { balanceOf, isSpendingAccount, spendingAccountsOf, type Balances, type SpendingAccount } from "@/lib/accounts";
+import { useAccounts } from "@/components/accounts-context";
 import type { LoanDirection } from "@/lib/db/entities/Loan";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
 import { useToast } from "@/components/toast";
@@ -30,13 +31,15 @@ type Props = {
   loanId?: string; // set when editing
   initial?: Values;
   amountLocked?: boolean; // true once a payment exists
+  presetAccount?: string; // e.g. "pocket" when you start from the Pocket page
 };
 
-export function LoanForm({ balances, loanId, initial, amountLocked = false }: Props) {
+export function LoanForm({ balances, loanId, initial, amountLocked = false, presetAccount }: Props) {
   const router = useRouter();
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const { today, yesterday } = useToday();
+  const accounts = useAccounts();
 
   const {
     register,
@@ -51,7 +54,7 @@ export function LoanForm({ balances, loanId, initial, amountLocked = false }: Pr
       direction: "given",
       personName: "",
       amount: undefined as unknown as number,
-      account: "current",
+      account: isSpendingAccount(presetAccount) ? presetAccount : "current",
       startedOn: today,
       note: "",
     },
@@ -65,7 +68,10 @@ export function LoanForm({ balances, loanId, initial, amountLocked = false }: Pr
 
   // When editing, undo the loan's current effect first so the preview is right
   const startBalances = { ...balances };
-  if (initial) startBalances[initial.account] += initial.direction === "given" ? initial.amount : -initial.amount;
+  if (initial) {
+    startBalances[initial.account] =
+      balanceOf(startBalances, initial.account) + (initial.direction === "given" ? initial.amount : -initial.amount);
+  }
 
   async function onSubmit(values: Values) {
     setServerError(null);
@@ -85,7 +91,6 @@ export function LoanForm({ balances, loanId, initial, amountLocked = false }: Pr
           : `Borrowed ${formatMoney(values.amount)} from ${values.personName}`,
     );
     router.push(`/loans/${loan.id}`);
-    router.refresh();
   }
 
   return (
@@ -152,7 +157,7 @@ export function LoanForm({ balances, loanId, initial, amountLocked = false }: Pr
                 value={field.value}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
-                options={SPENDING_ACCOUNTS}
+                options={spendingAccountsOf(accounts)}
                 balances={startBalances}
                 error={errors.account?.message}
               />

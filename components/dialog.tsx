@@ -41,7 +41,7 @@ export function Dialog({
           {/* the little handle bar that tells phone users this is a sheet */}
           <div aria-hidden="true" className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-line sm:hidden" />
           <div className="mb-4 flex items-start justify-between gap-4">
-            <h2 id={titleId} className="text-lg font-bold text-ink">
+            <h2 id={titleId} className="text-lg font-semibold text-ink">
               {title}
             </h2>
             <button

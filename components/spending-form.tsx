@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { CATEGORIES, formatMoney } from "@/lib/constants";
 import {
-  SPENDING_ACCOUNTS,
   accountLabel,
+  balanceOf,
   isSpendingAccount,
+  spendingAccountsOf,
   type Balances,
   type SpendingAccount,
 } from "@/lib/accounts";
+import { useAccounts } from "@/components/accounts-context";
 import { applyServerErrors, sendJson } from "@/lib/client-fetch";
 import { useToast } from "@/components/toast";
 import { AmountField, amountRules } from "@/components/form/amount-field";
@@ -44,6 +46,8 @@ export function SpendingForm({ mode, spendingId, defaultValues, balances, preset
   const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
   const { today, yesterday } = useToday();
+  const accounts = useAccounts();
+  const options = spendingAccountsOf(accounts);
 
   const {
     register,
@@ -60,7 +64,7 @@ export function SpendingForm({ mode, spendingId, defaultValues, balances, preset
       category: "food",
       spentOn: today,
       note: "",
-      account: isSpendingAccount(presetAccount) ? presetAccount : "current",
+      account: isSpendingAccount(presetAccount) && options.includes(presetAccount) ? presetAccount : "current",
     },
   });
 
@@ -74,7 +78,7 @@ export function SpendingForm({ mode, spendingId, defaultValues, balances, preset
   // Put it back first, so the preview shows the real effect of the change.
   const startBalances = { ...balances };
   if (mode === "edit" && defaultValues) {
-    startBalances[defaultValues.account] += defaultValues.amount;
+    startBalances[defaultValues.account] = balanceOf(startBalances, defaultValues.account) + defaultValues.amount;
   }
 
   async function onSubmit(values: SpendingFormValues) {
@@ -90,12 +94,13 @@ export function SpendingForm({ mode, spendingId, defaultValues, balances, preset
 
     showToast(
       mode === "create"
-        ? `Spent ${formatMoney(values.amount)} from ${accountLabel(values.account)}`
+        ? `Spent ${formatMoney(values.amount)} from ${accountLabel(values.account, accounts)}`
         : "Saved",
     );
     const saved = data.spending as { id: string };
+    // Pages are always rendered fresh, so push() alone shows the new data.
+    // (An extra router.refresh() here would make the server render twice.)
     router.push(`/spendings/${mode === "create" ? saved.id : spendingId}`);
-    router.refresh(); // re-fetch Server Components so lists/totals update
   }
 
   return (
@@ -137,7 +142,7 @@ export function SpendingForm({ mode, spendingId, defaultValues, balances, preset
             value={field.value}
             onChange={field.onChange}
             onBlur={field.onBlur}
-            options={SPENDING_ACCOUNTS}
+            options={options}
             balances={startBalances}
             error={errors.account?.message}
           />

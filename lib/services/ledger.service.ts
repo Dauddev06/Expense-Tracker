@@ -2,11 +2,9 @@ import { In } from "typeorm";
 import { getRepo } from "@/lib/db/data-source";
 import type { LedgerEntry } from "@/lib/db/entities/LedgerEntry";
 import {
-  ACCOUNT_IDS,
-  EMPTY_BALANCES,
+  BUILTIN_ACCOUNT_IDS,
   accountLabel,
   type AccountId,
-  type Balances,
 } from "@/lib/accounts";
 import { formatMoney } from "@/lib/constants";
 import { todayString } from "@/lib/dates";
@@ -16,12 +14,14 @@ import {
   type OpeningInput,
 } from "@/lib/money-input";
 import {
+  assertAllNonNegative,
   assertNoNegativeBalance,
   assertOwedNotNegative,
   moneyTransaction,
   readBalances,
-  readOwedToSavings,
+  readOwedBySavings,
 } from "./balance.service";
+import { assertOwnAccounts, getUserAccounts } from "./savings-account.service";
 import { FieldError } from "./errors";
 
 export type LedgerEntryDTO = {
@@ -52,14 +52,17 @@ export async function createMoneyAction(
   input: MoneyActionInput,
 ): Promise<LedgerEntryDTO> {
   return moneyTransaction(userId, async (m) => {
+    await assertOwnAccounts(m, userId, [input.fromAccount, input.toAccount], null);
+
     if (input.type === "savings_repay") {
-      const owed = await readOwedToSavings(m, userId);
+      const owed = (await readOwedBySavings(m, userId))[input.toAccount!] ?? 0;
+      const label = accountLabel(input.toAccount!, await getUserAccounts(userId));
       if (input.amount > owed) {
         throw new FieldError(
           "amount",
           owed > 0
-            ? `You only owe Savings ${formatMoney(owed)}.`
-            : "You don't owe Savings anything right now.",
+            ? `You only owe ${label} ${formatMoney(owed)}.`
+            : `You don't owe ${label} anything right now.`,
         );
       }
     }
@@ -90,11 +93,7 @@ export async function deleteMoneyAction(
     if (!entry) return false;
 
     await repo.delete({ id, userId });
-    await assertNoNegativeBalance(
-      m,
-      userId,
-      ACCOUNT_IDS.map((account) => ({ account, field: null })),
-    );
+    await assertAllNonNegative(m, userId);
     if (entry.type === "savings_borrow") await assertOwedNotNegative(m, userId);
     return true;
   });
@@ -107,27 +106,30 @@ export async function hasOpeningBalances(userId: string): Promise<boolean> {
   return (await repo.count({ where: { userId, type: "opening" } })) > 0;
 }
 
-export async function getOpeningBalances(userId: string): Promise<Balances> {
+export async function getOpeningBalances(userId: string): Promise<OpeningInput> {
   const repo = await getRepo("LedgerEntry");
-  const rows = await repo.find({ where: { userId, type: "opening" } });
-  const result: Balances = { ...EMPTY_BALANCES };
+  const rows = await repo.find({
+    where: { userId, type: "opening", toAccount: In(BUILTIN_ACCOUNT_IDS) },
+  });
+  const result: OpeningInput = { current: 0, savings: 0, pocket: 0, sadqa: 0 };
   for (const row of rows) {
-    if (row.toAccount) result[row.toAccount] += row.amount;
+    result[row.toAccount as keyof OpeningInput] += row.amount;
   }
   return result;
 }
 
-// Replaces the starting balance of every account (one "opening" row each).
+// Replaces the starting balance of every built-in account (one "opening" row
+// each). Extra savings accounts keep the starting amount they were opened with.
 export async function setOpeningBalances(
   userId: string,
   input: OpeningInput,
-): Promise<Balances> {
+): Promise<OpeningInput> {
   return moneyTransaction(userId, async (m) => {
     const repo = m.getRepository<LedgerEntry>("LedgerEntry");
-    await repo.delete({ userId, type: "opening" });
+    await repo.delete({ userId, type: "opening", toAccount: In(BUILTIN_ACCOUNT_IDS) });
     const occurredOn = todayString();
     await repo.save(
-      ACCOUNT_IDS.map((account) =>
+      BUILTIN_ACCOUNT_IDS.map((account) =>
         repo.create({
           userId,
           type: "opening",
@@ -142,7 +144,7 @@ export async function setOpeningBalances(
 
     // A lower starting amount must still cover what was already spent.
     const balances = await readBalances(m, userId);
-    for (const account of ACCOUNT_IDS) {
+    for (const account of BUILTIN_ACCOUNT_IDS) {
       if (balances[account] < 0) {
         const minimum = input[account] - balances[account];
         throw new FieldError(
