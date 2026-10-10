@@ -48,13 +48,15 @@ export function RegisterForm() {
       return;
     }
 
-    router.push("/login?registered=1");
+    // The server already logged us in. Start the welcome steps.
+    router.push("/welcome");
+    router.refresh();
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
       {serverError && (
-        <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div role="alert" className="rounded-xl bg-negative-soft px-3 py-2 text-sm text-negative">
           {serverError}
         </div>
       )}
@@ -67,6 +69,7 @@ export function RegisterForm() {
           id="name"
           className={`input ${errors.name ? "input-error" : ""}`}
           placeholder="Ali Khan"
+          autoComplete="name"
           {...register("name", {
             required: "Name is required",
             minLength: {
@@ -87,6 +90,7 @@ export function RegisterForm() {
           type="email"
           className={`input ${errors.email ? "input-error" : ""}`}
           placeholder="you@example.com"
+          autoComplete="email"
           {...register("email", {
             required: "Email is required",
             pattern: {
@@ -107,6 +111,7 @@ export function RegisterForm() {
           type="password"
           className={`input ${errors.password ? "input-error" : ""}`}
           placeholder="At least 8 characters"
+          autoComplete="new-password"
           {...register("password", {
             required: "Password is required",
             minLength: {

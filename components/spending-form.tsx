@@ -3,7 +3,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { CATEGORIES, toDateInputValue } from "@/lib/constants";
+import { CATEGORIES, formatMoney } from "@/lib/constants";
+import {
+  SPENDING_ACCOUNTS,
+  accountLabel,
+  isSpendingAccount,
+  type Balances,
+  type SpendingAccount,
+} from "@/lib/accounts";
+import { applyServerErrors, sendJson } from "@/lib/client-fetch";
+import { useToast } from "@/components/toast";
+import { AmountField, amountRules } from "@/components/form/amount-field";
+import { AccountPicker } from "@/components/form/account-picker";
+import { ChoiceChips } from "@/components/form/choice-chips";
+import { DateField } from "@/components/form/date-field";
+import { EffectPreview } from "@/components/form/effect-preview";
+import { FormError } from "@/components/form/form-error";
+import { useToday } from "@/components/form/use-today";
 
 export type SpendingFormValues = {
   title: string;
@@ -11,6 +27,7 @@ export type SpendingFormValues = {
   category: string;
   spentOn: string;
   note: string;
+  account: SpendingAccount;
 };
 
 type Props = {
@@ -18,20 +35,15 @@ type Props = {
   mode: "create" | "edit";
   spendingId?: string;
   defaultValues?: SpendingFormValues;
+  balances: Balances; // current balances, shown under each account chip
+  presetAccount?: string; // e.g. "pocket" when you start from the Pocket page
 };
 
-export function SpendingForm({ mode, spendingId, defaultValues }: Props) {
+export function SpendingForm({ mode, spendingId, defaultValues, balances, presetAccount }: Props) {
   const router = useRouter();
+  const showToast = useToast();
   const [serverError, setServerError] = useState<string | null>(null);
-
-  // Work out "today" and "yesterday" ONCE, when the form first appears.
-  // (Calling new Date() on every render would break React's purity rules.)
-  const [{ today, yesterday }] = useState(() => {
-    const now = new Date();
-    const yest = new Date(now);
-    yest.setDate(now.getDate() - 1);
-    return { today: toDateInputValue(now), yesterday: toDateInputValue(yest) };
-  });
+  const { today, yesterday } = useToday();
 
   const {
     register,
@@ -39,7 +51,7 @@ export function SpendingForm({ mode, spendingId, defaultValues }: Props) {
     handleSubmit,
     setValue,
     setError,
-    reset,
+    getValues,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<SpendingFormValues>({
     defaultValues: defaultValues ?? {
@@ -48,209 +60,142 @@ export function SpendingForm({ mode, spendingId, defaultValues }: Props) {
       category: "food",
       spentOn: today,
       note: "",
+      account: isSpendingAccount(presetAccount) ? presetAccount : "current",
     },
   });
 
-  // Subscribe to ONE field: this component re-renders when the date changes
-  const spentOn = useWatch({ control, name: "spentOn" });
+  // Subscribe to just the fields the preview and quick buttons need
+  const [spentOn, amount, account] = useWatch({
+    control,
+    name: ["spentOn", "amount", "account"],
+  });
+
+  // When editing, this spending is ALREADY taken out of its account.
+  // Put it back first, so the preview shows the real effect of the change.
+  const startBalances = { ...balances };
+  if (mode === "edit" && defaultValues) {
+    startBalances[defaultValues.account] += defaultValues.amount;
+  }
 
   async function onSubmit(values: SpendingFormValues) {
     setServerError(null);
 
-    const url =
-      mode === "create" ? "/api/spendings" : `/api/spendings/${spendingId}`;
-    const res = await fetch(url, {
-      method: mode === "create" ? "POST" : "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
-    });
-    const data = await res.json();
+    const url = mode === "create" ? "/api/spendings" : `/api/spendings/${spendingId}`;
+    const { ok, data } = await sendJson(url, mode === "create" ? "POST" : "PATCH", values);
 
-    if (!res.ok) {
-      if (data.fieldErrors) {
-        for (const [field, messages] of Object.entries(data.fieldErrors)) {
-          setError(field as keyof SpendingFormValues, {
-            message: (messages as string[])[0],
-          });
-        }
-      }
-      setServerError(data.message ?? "Could not save");
+    if (!ok) {
+      setServerError(applyServerErrors(data, setError, Object.keys(getValues())));
       return;
     }
 
-    if (mode === "create") {
-      reset(); // clear the form back to its default values
-      router.push(`/spendings/${data.spending.id}`);
-    } else {
-      router.push(`/spendings/${spendingId}`);
-    }
+    showToast(
+      mode === "create"
+        ? `Spent ${formatMoney(values.amount)} from ${accountLabel(values.account)}`
+        : "Saved",
+    );
+    const saved = data.spending as { id: string };
+    router.push(`/spendings/${mode === "create" ? saved.id : spendingId}`);
     router.refresh(); // re-fetch Server Components so lists/totals update
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-      {serverError && (
-        <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-          {serverError}
-        </div>
-      )}
+      <FormError message={serverError} />
 
-      {/* Title + Amount side by side on larger screens */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="sm:col-span-2">
-          <label htmlFor="title" className="label">
-            What did you spend on?
-          </label>
-          <input
-            id="title"
-            autoFocus
-            className={`input ${errors.title ? "input-error" : ""}`}
-            placeholder="e.g. Lunch with friends"
-            {...register("title", {
-              required: "Title is required",
-              maxLength: {
-                value: 120,
-                message: "Keep it under 120 characters",
-              },
-            })}
-          />
-          {errors.title && <p className="error-text">{errors.title.message}</p>}
-        </div>
-
-        <div>
-          <label htmlFor="amount" className="label">
-            Amount
-          </label>
-          <input
-            id="amount"
-            type="number"
-            inputMode="decimal"
-            step="0.01"
-            min="0"
-            className={`input ${errors.amount ? "input-error" : ""}`}
-            placeholder="0.00"
-            {...register("amount", {
-              valueAsNumber: true, // give us a number, not the string "12.5"
-              required: "Amount is required",
-              validate: (v) =>
-                (Number.isFinite(v) && v > 0) ||
-                "Amount must be greater than 0",
-            })}
-          />
-          {errors.amount && (
-            <p className="error-text">{errors.amount.message}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Category chips: a CUSTOM component, so we use <Controller> instead of register */}
       <div>
-        <span className="label">Category</span>
-        <Controller
-          name="category"
-          control={control}
-          rules={{ required: "Pick a category" }}
-          render={({ field }) => (
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((c) => {
-                const selected = field.value === c.value;
-                return (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => field.onChange(c.value)}
-                    onBlur={field.onBlur}
-                    className={`rounded-full border px-3 py-1.5 text-sm transition ${
-                      selected
-                        ? "border-indigo-600 bg-indigo-600 text-white"
-                        : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-                    }`}
-                  >
-                    {c.emoji} {c.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        />
-        {errors.category && (
-          <p className="error-text">{errors.category.message}</p>
-        )}
-      </div>
-
-      {/* Date with quick "Today / Yesterday" buttons using setValue */}
-      <div>
-        <label htmlFor="spentOn" className="label">
-          Date
+        <label htmlFor="title" className="label">
+          What did you spend on?
         </label>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            id="spentOn"
-            type="date"
-            max={today}
-            className={`input max-w-[12rem] ${errors.spentOn ? "input-error" : ""}`}
-            {...register("spentOn", { required: "Pick a date" })}
-          />
-          <button
-            type="button"
-            className={spentOn === today ? "btn-primary" : "btn-secondary"}
-            onClick={() =>
-              setValue("spentOn", today, {
-                shouldDirty: true,
-                shouldValidate: true,
-              })
-            }
-          >
-            Today
-          </button>
-          <button
-            type="button"
-            className={spentOn === yesterday ? "btn-primary" : "btn-secondary"}
-            onClick={() =>
-              setValue("spentOn", yesterday, {
-                shouldDirty: true,
-                shouldValidate: true,
-              })
-            }
-          >
-            Yesterday
-          </button>
-        </div>
-        {errors.spentOn && (
-          <p className="error-text">{errors.spentOn.message}</p>
-        )}
+        <input
+          id="title"
+          autoFocus
+          className={`input ${errors.title ? "input-error" : ""}`}
+          placeholder="e.g. Lunch with friends"
+          {...register("title", {
+            required: "Please say what it was for",
+            maxLength: { value: 120, message: "Keep it under 120 characters" },
+          })}
+        />
+        {errors.title && <p className="error-text">{errors.title.message}</p>}
       </div>
+
+      <AmountField
+        id="amount"
+        label="How much?"
+        registration={register("amount", amountRules())}
+        error={errors.amount?.message}
+      />
+
+      {/* Account chips: a CUSTOM component, so we use <Controller> instead of register */}
+      <Controller
+        name="account"
+        control={control}
+        rules={{ required: "Pick where the money came from" }}
+        render={({ field }) => (
+          <AccountPicker
+            label="Paid from"
+            value={field.value}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+            options={SPENDING_ACCOUNTS}
+            balances={startBalances}
+            error={errors.account?.message}
+          />
+        )}
+      />
+
+      <Controller
+        name="category"
+        control={control}
+        rules={{ required: "Pick a category" }}
+        render={({ field }) => (
+          <ChoiceChips
+            label="Category"
+            value={field.value}
+            onChange={field.onChange}
+            onBlur={field.onBlur}
+            options={CATEGORIES}
+            error={errors.category?.message}
+          />
+        )}
+      />
+
+      <DateField
+        id="spentOn"
+        label="When?"
+        registration={register("spentOn", { required: "Pick a date" })}
+        error={errors.spentOn?.message}
+        value={spentOn}
+        today={today}
+        yesterday={yesterday}
+        max={today}
+        onPick={(date) => setValue("spentOn", date, { shouldDirty: true, shouldValidate: true })}
+      />
 
       <div>
         <label htmlFor="note" className="label">
-          Note <span className="font-normal text-slate-400">(optional)</span>
+          Note <span className="font-normal text-muted">(optional)</span>
         </label>
         <textarea
           id="note"
-          rows={3}
+          rows={2}
           className="input"
           placeholder="Anything you want to remember about this"
           {...register("note")}
         />
       </div>
 
-      <div className="flex gap-3">
+      <EffectPreview balances={startBalances} changes={[{ account, delta: -amount }]} />
+
+      <div className="form-actions">
         <button
           type="submit"
           disabled={isSubmitting || (mode === "edit" && !isDirty)}
-          className="btn-primary"
+          className="btn-primary flex-1 sm:flex-none"
         >
-          {isSubmitting
-            ? "Saving..."
-            : mode === "create"
-              ? "Add spending"
-              : "Save changes"}
+          {isSubmitting ? "Saving..." : mode === "create" ? "Add spending" : "Save changes"}
         </button>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="btn-secondary"
-        >
+        <button type="button" onClick={() => router.back()} className="btn-secondary">
           Cancel
         </button>
       </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createUser, EmailTakenError } from "@/lib/services/user.service";
+import { createSession } from "@/lib/session";
 
 export async function POST(request: Request) {
   // 1. Read the JSON body the browser sent
@@ -27,6 +28,8 @@ export async function POST(request: Request) {
   // 3. Call the service layer (business logic + database)
   try {
     const user = await createUser({ name, email, password });
+    // Log the new user straight in, so they can go to the welcome steps
+    await createSession(user.id);
     return NextResponse.json({ user }, { status: 201 });
   } catch (error) {
     if (error instanceof EmailTakenError) {
