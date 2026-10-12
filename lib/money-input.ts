@@ -104,7 +104,9 @@ export function parseMoneyActionInput(
         fieldErrors.fromAccount = ["Pick where you are paying from"];
       break;
     case "sadqa_given":
-      fromAccount = "sadqa";
+      // Sadqa is only a reminder: the money comes out of a real account
+      fromAccount = pickAccount(b.fromAccount, isSpendingAccount);
+      if (!fromAccount) fieldErrors.fromAccount = ["Pick where you are giving it from"];
       break;
   }
 

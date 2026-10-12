@@ -46,8 +46,8 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
 
   // What undoing a received income does, in plain words
   const takeBack = (income: IncomeDTO) => {
-    const parts = [`${formatMoney(income.amount - income.sadqaAmount - income.savingsAmount)} back out of Current`];
-    if (income.sadqaAmount > 0) parts.push(`${formatMoney(income.sadqaAmount)} out of Sadqa`);
+    const parts = [`${formatMoney(income.amount - income.savingsAmount)} back out of Current`];
+    if (income.sadqaAmount > 0) parts.push(`${formatMoney(income.sadqaAmount)} off your Sadqa to give`);
     if (income.savingsAmount > 0 && income.savingsAccountApplied) {
       parts.push(`${formatMoney(income.savingsAmount)} out of ${accountLabel(income.savingsAccountApplied, accounts)}`);
     }
@@ -102,7 +102,7 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
                             Received {receivedWhen(income.receivedOn!)}
                           </span>
                           {income.sadqaAmount > 0 && (
-                            <span className="row-meta">{formatMoney(income.sadqaAmount)} set aside for Sadqa</span>
+                            <span className="row-meta">{formatMoney(income.sadqaAmount)} added to Sadqa to give</span>
                           )}
                           {income.savingsAmount > 0 && income.savingsAccountApplied && (
                             <span className="badge bg-positive-soft text-positive">

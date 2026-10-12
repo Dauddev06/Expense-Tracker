@@ -1,3 +1,8 @@
+# Docker names the database volume after this project name
+# ("learning_nestjs_pgdata"). It was the folder's old name: keeping it here
+# means the existing local database is still used after the folder rename.
+name: learning_nestjs
+
 services:
   db:
     image: postgres:17-alpine

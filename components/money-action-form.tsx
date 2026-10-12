@@ -109,16 +109,17 @@ function setupFor(type: MoneyAction, accounts: AccountInfo[], owed: OwedBySaving
         done: (amount, _from, to) => `${amount} paid back to ${to}`,
       };
     case "sadqa_given":
+      // Sadqa is only a reminder: the money comes out of a real account
       return {
-        fromOptions: [],
+        fromOptions: spendable,
         toOptions: [],
-        defaultFrom: "sadqa",
+        defaultFrom: "current",
         defaultTo: "",
-        fromLabel: "",
+        fromLabel: "Give it from",
         toLabel: "",
         noteLabel: "Given to / for",
         button: "Give Sadqa",
-        done: (amount) => `Gave ${amount} as Sadqa`,
+        done: (amount, from) => `Gave ${amount} as Sadqa from ${from}`,
       };
   }
 }
@@ -206,6 +207,7 @@ export function MoneyActionForm({ type, balances, owedBySavings, presetFrom, pre
   const changes: BalanceChange[] = [];
   if (fromAccount) changes.push({ account: fromAccount, delta: -amount });
   if (toAccount) changes.push({ account: toAccount, delta: amount });
+  if (type === "sadqa_given") changes.push({ account: "sadqa", delta: -amount });
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
@@ -218,7 +220,7 @@ export function MoneyActionForm({ type, balances, owedBySavings, presetFrom, pre
       )}
       {type === "sadqa_given" && (
         <p className="rounded-xl bg-positive-soft px-3 py-2 text-positive">
-          Sadqa set aside: <strong>{formatMoney(sadqa)}</strong>
+          Sadqa still to give: <strong>{formatMoney(sadqa)}</strong>
         </p>
       )}
 

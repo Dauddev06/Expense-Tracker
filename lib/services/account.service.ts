@@ -34,6 +34,10 @@ const CHAPTER_SQL = `
     UNION ALL
     SELECT account, -amount, 'spending', "spentOn"
       FROM spendings WHERE "userId" = $1
+    UNION ALL
+    -- Giving Sadqa also takes it off "Sadqa to give" (see balance.service.ts)
+    SELECT 'sadqa', -amount, type, "occurredOn"
+      FROM ledger_entries WHERE "userId" = $1 AND type = 'sadqa_given'
   ) AS moves
   WHERE day <= $3
   GROUP BY account`;

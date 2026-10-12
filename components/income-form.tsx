@@ -79,7 +79,7 @@ export function IncomeForm({ chapter, balances, sadqaPercent, savings, incomeId,
   if (initial?.received) {
     const oldSadqa = sadqaFor(initial.amount, sadqaPercent);
     const oldSaved = sadqaFor(initial.amount, savingsPercent);
-    startBalances.current -= initial.amount - oldSadqa - oldSaved;
+    startBalances.current -= initial.amount - oldSaved;
     startBalances.sadqa -= oldSadqa;
     startBalances[savingsAccount] = balanceOf(startBalances, savingsAccount) - oldSaved;
   }
@@ -195,7 +195,7 @@ export function IncomeForm({ chapter, balances, sadqaPercent, savings, incomeId,
           />
           {(sadqa > 0 || saved > 0) && (
             <p className="rounded-xl bg-positive-soft px-3 py-2 text-positive">
-              {sadqa > 0 && `${formatMoney(sadqa)} (${sadqaPercent}%) will be set aside for Sadqa. `}
+              {sadqa > 0 && `${formatMoney(sadqa)} (${sadqaPercent}%) will be added to your Sadqa to give. `}
               {saved > 0 &&
                 `${formatMoney(saved)} (${savingsPercent}%) will be saved into ${accountLabel(savingsAccount, accounts)}.`}
             </p>
@@ -203,7 +203,7 @@ export function IncomeForm({ chapter, balances, sadqaPercent, savings, incomeId,
           <EffectPreview
             balances={startBalances}
             changes={[
-              { account: "current", delta: amount - sadqa - saved },
+              { account: "current", delta: amount - saved },
               { account: "sadqa", delta: sadqa },
               { account: savingsAccount, delta: saved },
             ]}
