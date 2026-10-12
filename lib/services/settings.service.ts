@@ -2,11 +2,10 @@ import type { EntityManager } from "typeorm";
 import { getDataSource, getRepo } from "@/lib/db/data-source";
 import type { UserSettings } from "@/lib/db/entities/UserSettings";
 import type { SettingsInput } from "@/lib/income-input";
-import { FieldError } from "./errors";
 import { assertOwnAccounts } from "./savings-account.service";
 
 export type SettingsDTO = {
-  sadqaPercent: number; // % of every income set aside for Sadqa
+  sadqaPercent: number; // % of every income added to "Sadqa to give"
   savingsPercent: number; // % of every income moved into savingsAccount
   savingsAccount: string; // "savings" or an extra savings account ("sv_...")
 };
@@ -29,17 +28,6 @@ export async function getSettings(userId: string): Promise<SettingsDTO> {
   return readSettings(ds.manager, userId);
 }
 
-// Sadqa and savings both come out of the same income, so together they
-// can't be more than all of it.
-export function assertPercentsFit(sadqaPercent: number, savingsPercent: number, field: string) {
-  if (sadqaPercent + savingsPercent > 100) {
-    throw new FieldError(
-      field,
-      `Sadqa (${sadqaPercent}%) and savings (${savingsPercent}%) together can't be more than 100%.`,
-    );
-  }
-}
-
 // Saves only the parts that were sent (e.g. just the Sadqa %).
 export async function updateSettings(userId: string, input: SettingsInput): Promise<SettingsDTO> {
   const ds = await getDataSource();
@@ -49,7 +37,6 @@ export async function updateSettings(userId: string, input: SettingsInput): Prom
     savingsPercent: input.savingsPercent ?? current.savingsPercent,
     savingsAccount: input.savingsAccount ?? current.savingsAccount,
   };
-  assertPercentsFit(next.sadqaPercent, next.savingsPercent, input.savingsPercent !== undefined ? "savingsPercent" : "sadqaPercent");
   if (input.savingsAccount) await assertOwnAccounts(ds.manager, userId, [input.savingsAccount as never], "savingsAccount");
 
   const repo = await getRepo("UserSettings");

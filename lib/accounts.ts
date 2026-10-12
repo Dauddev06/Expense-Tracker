@@ -1,8 +1,10 @@
 import type { IconName } from "@/components/icons";
 
-// The four built-in "pots" of money every user has. On top of these a user
-// can open MORE savings accounts (e.g. "Emergency fund", "Hajj"). Those live
-// in the savings_accounts table and have keys like "sv_k3j9x2ab".
+// The four built-in accounts every user has. On top of these a user can open
+// MORE savings accounts (e.g. "Emergency fund", "Hajj"). Those live in the
+// savings_accounts table and have keys like "sv_k3j9x2ab".
+// Sadqa is the odd one out: it holds no money, it only REMINDS you how much
+// Sadqa you still have to give. Giving it takes the money out of a real account.
 export const ACCOUNTS = [
   {
     value: "current",
@@ -27,10 +29,10 @@ export const ACCOUNTS = [
   },
   {
     value: "sadqa",
-    label: "Sadqa",
+    label: "Sadqa to give",
     icon: "heart",
     tone: "bg-sadqa-soft text-sadqa",
-    description: "Set aside from every income, ready to give.",
+    description: "A reminder, not money: part of every income is added here. When you give it, pick the account it comes out of.",
   },
 ] as const satisfies readonly {
   value: string;
@@ -47,8 +49,8 @@ export const BUILTIN_ACCOUNT_IDS: BuiltinAccountId[] = ACCOUNTS.map((a) => a.val
 export type ExtraSavingsId = `sv_${string}`;
 export type AccountId = BuiltinAccountId | ExtraSavingsId;
 
-// Every account except Sadqa (Sadqa money can only be GIVEN).
-// Spend, lend, add and move money with these.
+// Every account except Sadqa (it isn't money, only a reminder).
+// Spend, lend, add, move and give Sadqa with these.
 export type SpendingAccount = Exclude<AccountId, "sadqa">;
 
 // How much is in each account, e.g. { current: 47500, savings: 90000, ... }
@@ -162,9 +164,9 @@ export const LEDGER_TYPES = [
   "savings_borrow", // borrowed from a savings account
   "savings_repay", // paid a savings account back
   "income", // income received into Current
-  "sadqa_allocation", // part of income set aside: Current -> Sadqa
+  "sadqa_allocation", // part of income added to "Sadqa to give" (no money moves)
   "savings_allocation", // part of income saved: Current -> a savings account
-  "sadqa_given", // Sadqa given away
+  "sadqa_given", // Sadqa given away: out of a real account, off "Sadqa to give"
   "loan_given", // I lent money to someone
   "loan_taken", // I borrowed money from someone
   "loan_payment_in", // someone paid me back

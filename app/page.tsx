@@ -13,7 +13,7 @@ import { ScrollReveal } from "@/components/landing/scroll-reveal";
 export const metadata: Metadata = {
   title: { absolute: "Pocket Manager · Every rupee, accounted for" },
   description:
-    "A simple money app for your month: balances for every account, what you still have to pay, income with Sadqa set aside, loans and savings. Free.",
+    "A simple money app for your month: balances for every account, what you still have to pay, income with a Sadqa reminder, loans and savings. Free.",
 };
 
 // ---------------------------------------------------------------------------
@@ -119,7 +119,7 @@ const FEATURES: { icon: IconName; colour: string; title: string; text: string; p
     colour: "bg-sky",
     title: "Income",
     text: "Salary and any other money you earn.",
-    points: ["Expected first, received when it arrives", "Goes straight into Current", "Sadqa is set aside automatically"],
+    points: ["Expected first, received when it arrives", "Goes straight into Current", "Sadqa to give is worked out for you"],
   },
   {
     icon: "users",
@@ -159,7 +159,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How does Sadqa work?",
-    a: "In Settings you choose a percentage, for example 2.5%. Every time you mark income as received, that part moves from Current into your Sadqa account, ready to give. Changing the % never rewrites the past.",
+    a: "In Settings you choose a percentage, for example 2.5%. Every time you mark income as received, that part is added to your Sadqa to give. It's only a reminder: your income stays whole in Current. When you give Sadqa, you pick the account it comes out of. Changing the % never rewrites the past.",
   },
   {
     q: "Can I have more than one savings account?",
@@ -204,7 +204,7 @@ export default async function LandingPage() {
             </h1>
             <p {...delay(160)} className="hero-in mt-6 max-w-xl text-lg leading-relaxed text-ink-2">
               One simple place for your month: what&apos;s in each account, what&apos;s still to pay, who owes
-              what, and Sadqa set aside from every income.
+              what, and the Sadqa you still have to give.
             </p>
             <div {...delay(240)} className="hero-in mt-8 flex flex-wrap gap-3">
               <Link href="/register" className="btn-primary min-h-12 px-6 text-base">
@@ -225,7 +225,7 @@ export default async function LandingPage() {
                 { label: "Salary", value: "+120,000", tag: "Received", tone: "good" },
                 { label: "Rent", value: "−35,000", tag: "Paid", tone: "good" },
                 { label: "Electricity", value: "−8,400", tag: "Still to pay", tone: "wait" },
-                { label: "Sadqa set aside", value: "3,000", tag: "2.5%", tone: "neutral" },
+                { label: "Sadqa to give", value: "3,000", tag: "2.5%", tone: "neutral" },
               ]}
               footer={
                 <div className="flex items-end justify-between gap-4">
@@ -393,13 +393,13 @@ export default async function LandingPage() {
               <p {...reveal("up")} className="text-sm text-zinc-600">Sadqa, built in</p>
               <h2 {...reveal("up", 1)} className="mt-3 text-4xl font-normal tracking-tight sm:text-5xl">Give, without having to remember</h2>
               <p {...reveal("up", 2)} className="mt-5 text-lg text-zinc-700">
-                Choose a percentage once. Every time income arrives, that part is set aside in its own Sadqa account,
-                ready whenever you want to give.
+                Choose a percentage once. Every time income arrives, that part is added to your Sadqa to give, so you
+                always know how much is waiting. Give it from any account, whenever you like.
               </p>
               <ul {...reveal("up", 3)} className="mt-7 space-y-3 text-zinc-800">
                 {[
-                  "Set aside automatically from every income",
-                  "Its own balance, kept apart from your spending money",
+                  "Worked out automatically from every income",
+                  "Your income stays whole: it's a reminder, not a deduction",
                   "Changing the % never rewrites the past",
                 ].map((t) => (
                   <li key={t} className="flex gap-3">
@@ -414,13 +414,13 @@ export default async function LandingPage() {
                 title="Salary received"
                 aside="Sadqa 2.5%"
                 rows={[
-                  { label: "Into Current", value: "+117,000", tone: "good" },
-                  { label: "Into Sadqa", value: "+3,000", tag: "Set aside", tone: "good" },
-                  { label: "Given this month", value: "−1,500", tag: "Sadqa", tone: "neutral" },
+                  { label: "Into Current", value: "+120,000", tone: "good" },
+                  { label: "Sadqa to give", value: "+3,000", tag: "Reminder", tone: "good" },
+                  { label: "Given from Pocket", value: "−1,500", tag: "Sadqa", tone: "neutral" },
                 ]}
                 footer={
                   <span>
-                    Sadqa ready to give: <span className="text-zinc-100 tabular-nums">PKR 4,500</span>
+                    Sadqa still to give: <span className="text-zinc-100 tabular-nums">PKR 4,500</span>
                   </span>
                 }
               />

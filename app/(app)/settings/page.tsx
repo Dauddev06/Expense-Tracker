@@ -29,8 +29,9 @@ export default async function SettingsPage() {
           </h2>
         </div>
         <p className="mt-3 mb-5 text-muted">
-          Each time you mark income as received, this part of it is moved from Current into
-          Sadqa. Changing it only affects income you receive from now on.
+          Each time you mark income as received, this part of it is added to your Sadqa to give.
+          It&apos;s only a reminder: the money stays in Current until you give it. Changing the %
+          only affects income you receive from now on.
         </p>
         <SettingsForm sadqaPercent={settings.sadqaPercent} submitLabel="Save Sadqa %" />
       </section>

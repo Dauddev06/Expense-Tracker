@@ -1,4 +1,4 @@
-import { getAccountsChapter } from "./account.service";
+import { chapterOf, getAccountsChapter } from "./account.service";
 import {
   ensureChapterOccurrences,
   listCarriedOver,
@@ -35,6 +35,11 @@ export async function getDashboard(userId: string, chapter: string) {
     .filter((i) => i.status === "received")
     .reduce((sum, i) => sum + i.amount, 0);
   const toPay = summarizePlanned([...planned, ...carried]);
+  // All your money at the end of the month (or now): every account except
+  // Sadqa, which is only a reminder of what to give, not money.
+  const total = accounts
+    .filter((a) => a.value !== "sadqa")
+    .reduce((sum, a) => sum + chapterOf(ledger, a.value).closing, 0);
 
   return {
     accounts,
@@ -45,6 +50,6 @@ export async function getDashboard(userId: string, chapter: string) {
       pendingCount: planned.filter((p) => p.status === "pending").length + carried.length,
     },
     spending,
-    left: Math.round((incomeReceived - spending.total) * 100) / 100,
+    total: Math.round(total * 100) / 100,
   };
 }

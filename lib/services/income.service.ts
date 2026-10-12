@@ -7,7 +7,7 @@ import type { AccountId } from "@/lib/accounts";
 import type { IncomeInput, ReceiveInput, SavingsChoice } from "@/lib/income-input";
 import { assertAllNonNegative, moneyTransaction } from "./balance.service";
 import { assertOwnAccounts } from "./savings-account.service";
-import { assertPercentsFit, readSettings } from "./settings.service";
+import { readSettings } from "./settings.service";
 import { currentChapter } from "@/lib/dates";
 import { FieldError } from "./errors";
 
@@ -20,7 +20,7 @@ export type IncomeDTO = {
   receivedOn: string | null;
   repeats: boolean; // "Every month": copies itself into the next month
   sadqaPercentApplied: number | null;
-  sadqaAmount: number; // how much of it went to Sadqa (0 if not received)
+  sadqaAmount: number; // how much Sadqa it added to give (0 if not received)
   savingsPercentApplied: number | null;
   savingsAccountApplied: string | null; // which savings account got its part
   savingsAmount: number; // how much of it was saved (0 if not received)
@@ -53,7 +53,8 @@ function toDTO(i: Income): IncomeDTO {
 
 // Writes the money movements for a received income, in ONE insert:
 //   1. income:             the full amount INTO Current
-//   2. sadqa_allocation:   the Sadqa part from Current INTO Sadqa
+//   2. sadqa_allocation:   the Sadqa part added to "Sadqa to give". Only a
+//                          reminder: nothing leaves Current until it's given.
 //   3. savings_allocation: the savings part from Current INTO a savings account
 async function writeIncomeEntries(m: EntityManager, income: Income) {
   const common = {
@@ -67,7 +68,7 @@ async function writeIncomeEntries(m: EntityManager, income: Income) {
   ];
   const sadqa = sadqaFor(income.amount, income.sadqaPercentApplied ?? 0);
   if (sadqa > 0) {
-    rows.push({ ...common, type: "sadqa_allocation", amount: sadqa, fromAccount: "current", toAccount: "sadqa" });
+    rows.push({ ...common, type: "sadqa_allocation", amount: sadqa, fromAccount: null, toAccount: "sadqa" });
   }
   const saved = savingsFor(income.amount, income.savingsPercentApplied ?? 0);
   if (saved > 0 && income.savingsAccountApplied) {
@@ -89,11 +90,10 @@ async function deleteIncomeEntries(m: EntityManager, income: Income) {
 }
 
 // Puts the savings choice on the income: what was picked when it arrived,
-// otherwise the user's Settings. Checks it fits next to the Sadqa %.
+// otherwise the user's Settings.
 async function applySavings(m: EntityManager, income: Income, choice: SavingsChoice | null) {
   const settings = await readSettings(m, income.userId);
   const pick = choice ?? { percent: settings.savingsPercent, account: settings.savingsAccount };
-  assertPercentsFit(income.sadqaPercentApplied ?? 0, pick.percent, "savingsPercent");
   if (pick.percent > 0) {
     await assertOwnAccounts(m, income.userId, [pick.account as AccountId], "savingsAccount");
   }
@@ -222,7 +222,7 @@ export async function updateIncome(
     }
 
     // Taking money back out can't leave an account below zero (e.g. if the
-    // Sadqa or savings part was already given away or moved)
+    // savings part was already moved, or its Sadqa was already given)
     await assertAllNonNegative(m, userId);
     return toDTO(income);
   });

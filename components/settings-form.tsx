@@ -55,7 +55,7 @@ export function SettingsForm({ sadqaPercent, submitLabel, onSaved }: Props) {
       <div>
         <PercentField
           id="sadqaPercent"
-          label="Part of each income to set aside for Sadqa"
+          label="Part of each income to give as Sadqa"
           registration={register("sadqaPercent", percentRules)}
           error={errors.sadqaPercent?.message}
           value={percent}
@@ -65,7 +65,7 @@ export function SettingsForm({ sadqaPercent, submitLabel, onSaved }: Props) {
         {!errors.sadqaPercent && Number.isFinite(percent) && (
           <p className="hint-text">
             Example: on an income of {formatMoney(100000)},{" "}
-            {formatMoney(Math.round(100000 * percent) / 100)} goes to Sadqa.
+            {formatMoney(Math.round(100000 * percent) / 100)} is added to your Sadqa to give.
           </p>
         )}
       </div>

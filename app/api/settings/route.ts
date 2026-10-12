@@ -26,6 +26,6 @@ export async function PUT(request: Request) {
     const settings = await updateSettings(user.id, parsed.data);
     return NextResponse.json({ settings });
   } catch (error) {
-    return fieldErrorResponse(error); // e.g. Sadqa + savings over 100%
+    return fieldErrorResponse(error); // e.g. a savings account that was closed
   }
 }

@@ -153,7 +153,13 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
       {/* The month for this account, like a bank statement */}
       <section className="hero" aria-labelledby="balance-title">
         <p id="balance-title" className="text-sm text-hero-ink/70">
-          {isThisMonth ? "Balance right now" : `Balance at the end of ${month}`}
+          {isSadqa
+            ? isThisMonth
+              ? "Still to give"
+              : `Still to give at the end of ${month}`
+            : isThisMonth
+              ? "Balance right now"
+              : `Balance at the end of ${month}`}
         </p>
         <p className="amount mt-1 text-4xl sm:text-5xl">{formatMoney(ledger.closing)}</p>
         <div className="mt-5 grid grid-cols-3 gap-2">
@@ -162,7 +168,7 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
             <p className="amount mt-0.5">{formatMoney(ledger.opening)}</p>
           </div>
           <div className="hero-box">
-            <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">{isSadqa ? "Set aside" : "Money in"}</p>
+            <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">{isSadqa ? "Added" : "Money in"}</p>
             <p className="amount mt-0.5 text-positive-solid">+{formatMoney(ledger.moneyIn)}</p>
           </div>
           <div className="hero-box">
@@ -171,15 +177,17 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
           </div>
         </div>
         <p className="mt-3 text-xs text-hero-ink/60">
-          Money left at the end of a month moves into the next month automatically.
+          {isSadqa
+            ? "Sadqa not given by the end of a month moves into the next month automatically."
+            : "Money left at the end of a month moves into the next month automatically."}
         </p>
       </section>
 
       {isSadqa && settings && (
         <p className="rounded-xl bg-surface-2 px-4 py-3 text-ink-2">
           {settings.sadqaPercent > 0
-            ? `${settings.sadqaPercent}% of every income you receive is set aside here.`
-            : "Nothing is set aside from income yet."}{" "}
+            ? `${settings.sadqaPercent}% of every income you receive is added here. It stays in Current until you give it.`
+            : "Nothing is added from income yet."}{" "}
           <Link href="/settings" className="font-medium text-brand-ink underline">
             Change the %
           </Link>
