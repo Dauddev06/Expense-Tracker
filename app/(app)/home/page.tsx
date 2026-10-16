@@ -50,8 +50,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/home">
           </h2>
           <span className="badge bg-white/10 text-hero-ink/80">{isThisMonth ? "In progress" : "Finished"}</span>
         </div>
-        <p className="mt-3 text-sm text-hero-ink/70">{d.left >= 0 ? "Left from income" : "Spent more than income"}</p>
-        <p className="amount text-4xl sm:text-5xl">{formatMoney(Math.abs(d.left))}</p>
+        <p className="mt-3 text-sm text-hero-ink/70">{isThisMonth ? "Total money" : `Total money at the end of ${monthName}`}</p>
+        <p className="amount text-4xl sm:text-5xl">{formatMoney(d.total)}</p>
         <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <div className="hero-box">
             <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">Income</p>

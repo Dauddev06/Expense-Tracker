@@ -37,7 +37,11 @@ export function EffectPreview({
               <strong className={after < 0 ? "text-negative" : "text-ink"}>
                 {formatMoney(after)}
               </strong>
-              {after < 0 && <span className="text-negative"> (not enough money)</span>}
+              {after < 0 && (
+                <span className="text-negative">
+                  {account === "sadqa" ? " (more than you have to give)" : " (not enough money)"}
+                </span>
+              )}
             </li>
           );
         })}

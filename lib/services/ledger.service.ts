@@ -73,6 +73,10 @@ export async function createMoneyAction(
     if (input.fromAccount) {
       await assertNoNegativeBalance(m, userId, [
         { account: input.fromAccount, field: "amount", requested: input.amount },
+        // Giving Sadqa also can't be more than what is still to give
+        ...(input.type === "sadqa_given"
+          ? [{ account: "sadqa" as const, field: "amount", requested: input.amount }]
+          : []),
       ]);
     }
     return toDTO(saved);

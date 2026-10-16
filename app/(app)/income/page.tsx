@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/session";
-import { listIncomes, type IncomeDTO } from "@/lib/services/income.service";
+import { ensureThisMonthIncome, listIncomes, type IncomeDTO } from "@/lib/services/income.service";
 import { getAllAccountNames } from "@/lib/services/savings-account.service";
 import { accountLabel } from "@/lib/accounts";
 import { getSettings } from "@/lib/services/settings.service";
@@ -26,7 +26,8 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
 
   const chapter = readChapterParam(chapterParam);
   const [incomes, settings, balances, accounts] = await Promise.all([
-    listIncomes(user.id, chapter),
+    // New month: last month's "Every month" incomes are copied in first
+    ensureThisMonthIncome(user.id, chapter).then(() => listIncomes(user.id, chapter)),
     getSettings(user.id),
     getBalances(user.id),
     getAllAccountNames(user.id),
@@ -45,8 +46,8 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
 
   // What undoing a received income does, in plain words
   const takeBack = (income: IncomeDTO) => {
-    const parts = [`${formatMoney(income.amount - income.sadqaAmount - income.savingsAmount)} back out of Current`];
-    if (income.sadqaAmount > 0) parts.push(`${formatMoney(income.sadqaAmount)} out of Sadqa`);
+    const parts = [`${formatMoney(income.amount - income.savingsAmount)} back out of Current`];
+    if (income.sadqaAmount > 0) parts.push(`${formatMoney(income.sadqaAmount)} off your Sadqa to give`);
     if (income.savingsAmount > 0 && income.savingsAccountApplied) {
       parts.push(`${formatMoney(income.savingsAmount)} out of ${accountLabel(income.savingsAccountApplied, accounts)}`);
     }
@@ -57,7 +58,7 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
     <div className="space-y-6">
       <PageHeader
         title="Income"
-        description="Money you earn each month. It goes into Current."
+        description="Money you earn. It goes into Current, and “Every month” income comes back by itself each month."
         action={
           <Link href={`/income/new?chapter=${chapter}`} className="btn-primary">
             Add income
@@ -101,7 +102,7 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
                             Received {receivedWhen(income.receivedOn!)}
                           </span>
                           {income.sadqaAmount > 0 && (
-                            <span className="row-meta">{formatMoney(income.sadqaAmount)} set aside for Sadqa</span>
+                            <span className="row-meta">{formatMoney(income.sadqaAmount)} added to Sadqa to give</span>
                           )}
                           {income.savingsAmount > 0 && income.savingsAccountApplied && (
                             <span className="badge bg-positive-soft text-positive">
@@ -115,6 +116,12 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
                         <span className="badge bg-warning-soft text-warning">
                           <Icon name="clock" className="size-3.5" />
                           Not received yet
+                        </span>
+                      )}
+                      {income.repeats && (
+                        <span className="badge bg-tile text-ink-2">
+                          <Icon name="repeat" className="size-3.5" />
+                          Every month
                         </span>
                       )}
                     </div>
@@ -139,11 +146,15 @@ export default async function IncomePage({ searchParams }: PageProps<"/income">)
                         variant="danger"
                         label="Delete"
                         title={`Delete ${income.title}?`}
-                        message={
+                        message={`${
                           income.status === "received"
                             ? takeBack(income)
                             : "It hasn't been received, so your balances won't change."
-                        }
+                        }${
+                          income.repeats
+                            ? " Only this month's is deleted: it still comes back next month. To stop that, edit it and choose \u201cJust this month\u201d."
+                            : ""
+                        }`}
                         confirmLabel="Yes, delete it"
                         url={`/api/income/${income.id}`}
                         successMessage="Income deleted"

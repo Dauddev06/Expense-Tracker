@@ -32,7 +32,7 @@ const PAGES: Record<string, { type: MoneyAction; title: string; intro: string }>
   sadqa: {
     type: "sadqa_given",
     title: "Give Sadqa",
-    intro: "Give from the money you set aside for Sadqa.",
+    intro: "Pick the account the money comes out of. It's taken off your Sadqa to give.",
   },
 };
 
@@ -59,8 +59,8 @@ export default async function MoneyActionPage({ params, searchParams }: PageProp
           </p>
         ) : page.type === "sadqa_given" && balanceOf(balances, "sadqa") <= 0 ? (
           <p className="rounded-xl bg-surface-2 px-3 py-3 text-ink-2">
-            There is no Sadqa set aside right now. When you receive income, part of it is set
-            aside here automatically (you can choose the % in Settings).
+            You have no Sadqa to give right now. When you receive income, part of it is added
+            here as a reminder (you can choose the % in Settings).
           </p>
         ) : (
           <MoneyActionForm

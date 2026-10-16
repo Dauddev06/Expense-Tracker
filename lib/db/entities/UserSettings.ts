@@ -21,7 +21,7 @@ export class UserSettings {
   @JoinColumn({ name: "userId" })
   user!: Relation<User>;
 
-  // e.g. 2.5 means 2.5% of every income is set aside for Sadqa
+  // e.g. 2.5 means 2.5% of every income is added to "Sadqa to give" (a reminder)
   @Column({
     type: "numeric",
     precision: 5,

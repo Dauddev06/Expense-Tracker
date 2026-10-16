@@ -95,7 +95,7 @@ function ReceiveForm({ income, settings, balances, onDone }: Props & { onDone: (
       <FormError message={serverError} />
       <p className="text-ink-2">
         {formatMoney(income.amount)} goes into Current.
-        {sadqa > 0 && ` ${formatMoney(sadqa)} (${settings.sadqaPercent}%) of it is set aside for Sadqa.`}
+        {sadqa > 0 && ` ${formatMoney(sadqa)} (${settings.sadqaPercent}%) is added to your Sadqa to give.`}
       </p>
       <DateField
         id="receivedOn"
@@ -138,7 +138,7 @@ function ReceiveForm({ income, settings, balances, onDone }: Props & { onDone: (
       <EffectPreview
         balances={balances}
         changes={[
-          { account: "current", delta: income.amount - sadqa - saved },
+          { account: "current", delta: income.amount - saved },
           { account: "sadqa", delta: sadqa },
           { account: savingsAccount as AccountId, delta: saved },
         ]}

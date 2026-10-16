@@ -74,8 +74,8 @@ export function WelcomeFlow({ name, chapter, sadqaPercent: initialPercent }: Pro
           <>
             <h1 className="page-title">Sadqa</h1>
             <p className="mt-2 mb-6 text-ink-2">
-              Would you like to set aside part of every income for Sadqa? We&apos;ll keep it in a
-              separate Sadqa account for you.
+              Would you like to give part of every income as Sadqa? We&apos;ll remind you how much
+              you still have to give.
             </p>
             <SettingsForm
               sadqaPercent={sadqaPercent}

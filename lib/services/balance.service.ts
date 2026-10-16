@@ -18,7 +18,11 @@ import { FieldError } from "./errors";
 //              - SUM(ledger amounts where fromAccount = A)
 //              - SUM(spendings where account = A)
 //
-// One SQL query does all three sums for all accounts at once.
+// Sadqa is not money, only a reminder of what is still to give: income adds
+// to it (sadqa_allocation, from nobody), and every Sadqa given takes it off
+// again, whichever account the money itself came out of.
+//
+// One SQL query does all the sums for all accounts at once.
 // ---------------------------------------------------------------------------
 const BALANCES_SQL = `
   SELECT account, COALESCE(SUM(delta), 0) AS total
@@ -31,6 +35,9 @@ const BALANCES_SQL = `
     UNION ALL
     SELECT account, -amount
       FROM spendings WHERE "userId" = $1
+    UNION ALL
+    SELECT 'sadqa', -amount
+      FROM ledger_entries WHERE "userId" = $1 AND type = 'sadqa_given'
   ) AS moves
   GROUP BY account`;
 
@@ -144,6 +151,15 @@ export async function assertNoNegativeBalance(
   for (const check of checks) {
     const after = balances[check.account] ?? 0;
     if (after >= 0) continue;
+    // Sadqa is a reminder, not money, so it gets its own words
+    if (check.account === "sadqa") {
+      throw new FieldError(
+        check.field,
+        check.requested !== undefined
+          ? `You only have ${formatMoney(Math.max(after + check.requested, 0))} of Sadqa left to give.`
+          : "This can't be done: you have already given more Sadqa than would be left to give. Remove a Sadqa you gave first.",
+      );
+    }
     const label = await nameOf(m, userId, check.account);
     const message =
       check.requested !== undefined

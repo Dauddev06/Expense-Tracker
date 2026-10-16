@@ -47,11 +47,11 @@ function sentenceFor(e: LedgerEntry, accounts: AccountInfo[]): string {
     case "income":
       return `Received ${amount} ${e.income?.title ?? "income"} into ${to}`;
     case "sadqa_allocation":
-      return `${amount} set aside for Sadqa`;
+      return `${amount} of ${e.income?.title ?? "income"} added to Sadqa to give`;
     case "savings_allocation":
       return `${amount} of ${e.income?.title ?? "income"} saved into ${to}`;
     case "sadqa_given":
-      return `Gave ${amount} as Sadqa`;
+      return `Gave ${amount} as Sadqa from ${from}`;
     case "loan_given":
       return `Lent ${amount} to ${person} from ${from}`;
     case "loan_taken":
@@ -72,7 +72,7 @@ export function removeEffect(
   if (e.type === "deposit")
     return `This will take ${amount} back out of ${accountLabel(e.toAccount!, accounts)}.`;
   if (e.type === "sadqa_given")
-    return `This will put ${amount} back into Sadqa.`;
+    return `This will put ${amount} back into ${accountLabel(e.fromAccount!, accounts)} and back on your Sadqa to give.`;
   return `This will move ${amount} back from ${accountLabel(e.toAccount!, accounts)} to ${accountLabel(e.fromAccount!, accounts)}.`;
 }
 
@@ -138,7 +138,10 @@ export async function listActivity(
     .orderBy("e.occurredOn", "DESC")
     .addOrderBy("e.createdAt", "DESC")
     .limit(limit);
-  if (account) {
+  if (account === "sadqa") {
+    // Sadqa given comes out of a real account, but it belongs here too
+    query.andWhere("(e.toAccount = 'sadqa' OR e.type = 'sadqa_given')");
+  } else if (account) {
     query.andWhere("(e.fromAccount = :account OR e.toAccount = :account)", {
       account,
     });
@@ -154,7 +157,7 @@ export async function listActivity(
 
   const [entries, spendings, accounts] = await Promise.all([
     query.getMany(),
-    // Sadqa can't be spent, so there are no Sadqa spendings to show
+    // Sadqa isn't money, so there are no Sadqa spendings to show
     account === "sadqa"
       ? Promise.resolve([] as Spending[])
       : spendingRepo.find({

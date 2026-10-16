@@ -1,12 +1,14 @@
 import type { EntityManager } from "typeorm";
-import { getRepo } from "@/lib/db/data-source";
+import { Not } from "typeorm";
+import { getDataSource, getRepo } from "@/lib/db/data-source";
 import type { Income, IncomeStatus } from "@/lib/db/entities/Income";
 import type { LedgerEntry } from "@/lib/db/entities/LedgerEntry";
 import type { AccountId } from "@/lib/accounts";
 import type { IncomeInput, ReceiveInput, SavingsChoice } from "@/lib/income-input";
 import { assertAllNonNegative, moneyTransaction } from "./balance.service";
 import { assertOwnAccounts } from "./savings-account.service";
-import { assertPercentsFit, readSettings } from "./settings.service";
+import { readSettings } from "./settings.service";
+import { currentChapter } from "@/lib/dates";
 import { FieldError } from "./errors";
 
 export type IncomeDTO = {
@@ -16,8 +18,9 @@ export type IncomeDTO = {
   amount: number;
   status: IncomeStatus;
   receivedOn: string | null;
+  repeats: boolean; // "Every month": copies itself into the next month
   sadqaPercentApplied: number | null;
-  sadqaAmount: number; // how much of it went to Sadqa (0 if not received)
+  sadqaAmount: number; // how much Sadqa it added to give (0 if not received)
   savingsPercentApplied: number | null;
   savingsAccountApplied: string | null; // which savings account got its part
   savingsAmount: number; // how much of it was saved (0 if not received)
@@ -39,6 +42,7 @@ function toDTO(i: Income): IncomeDTO {
     amount: i.amount,
     status: i.status,
     receivedOn: i.receivedOn,
+    repeats: i.repeats,
     sadqaPercentApplied: i.sadqaPercentApplied,
     sadqaAmount: received ? sadqaFor(i.amount, i.sadqaPercentApplied ?? 0) : 0,
     savingsPercentApplied: i.savingsPercentApplied,
@@ -49,7 +53,8 @@ function toDTO(i: Income): IncomeDTO {
 
 // Writes the money movements for a received income, in ONE insert:
 //   1. income:             the full amount INTO Current
-//   2. sadqa_allocation:   the Sadqa part from Current INTO Sadqa
+//   2. sadqa_allocation:   the Sadqa part added to "Sadqa to give". Only a
+//                          reminder: nothing leaves Current until it's given.
 //   3. savings_allocation: the savings part from Current INTO a savings account
 async function writeIncomeEntries(m: EntityManager, income: Income) {
   const common = {
@@ -63,7 +68,7 @@ async function writeIncomeEntries(m: EntityManager, income: Income) {
   ];
   const sadqa = sadqaFor(income.amount, income.sadqaPercentApplied ?? 0);
   if (sadqa > 0) {
-    rows.push({ ...common, type: "sadqa_allocation", amount: sadqa, fromAccount: "current", toAccount: "sadqa" });
+    rows.push({ ...common, type: "sadqa_allocation", amount: sadqa, fromAccount: null, toAccount: "sadqa" });
   }
   const saved = savingsFor(income.amount, income.savingsPercentApplied ?? 0);
   if (saved > 0 && income.savingsAccountApplied) {
@@ -85,11 +90,10 @@ async function deleteIncomeEntries(m: EntityManager, income: Income) {
 }
 
 // Puts the savings choice on the income: what was picked when it arrived,
-// otherwise the user's Settings. Checks it fits next to the Sadqa %.
+// otherwise the user's Settings.
 async function applySavings(m: EntityManager, income: Income, choice: SavingsChoice | null) {
   const settings = await readSettings(m, income.userId);
   const pick = choice ?? { percent: settings.savingsPercent, account: settings.savingsAccount };
-  assertPercentsFit(income.sadqaPercentApplied ?? 0, pick.percent, "savingsPercent");
   if (pick.percent > 0) {
     await assertOwnAccounts(m, income.userId, [pick.account as AccountId], "savingsAccount");
   }
@@ -116,22 +120,66 @@ function clearReceived(income: Income) {
   income.savingsAccountApplied = null;
 }
 
+// A new month gets last month's "Every month" incomes, reset to "not received
+// yet" (so the salary is there, waiting for "Mark as received"). Edit the new
+// copy freely: next month copies THAT one, so your change carries forward.
+//
+// ONE SQL statement, safe to run on every page load:
+// - only a month that has NO income rows yet is filled (so October, which you
+//   filled by hand, never gets a duplicate; a deleted copy stays deleted)
+// - it copies from the latest earlier month that has repeating income
+// - "copiedFromId" is UNIQUE, so the same income is never copied twice, even
+//   if two requests run at the same moment (ON CONFLICT DO NOTHING)
+export async function ensureMonthIncome(userId: string, chapter: string): Promise<void> {
+  const ds = await getDataSource();
+  await ds.query(
+    `INSERT INTO incomes ("userId", chapter, title, amount, status, repeats, "copiedFromId")
+     SELECT i."userId", $2::varchar, i.title, i.amount, 'expected', true, i.id
+       FROM incomes i
+      WHERE i."userId" = $1
+        AND i.repeats
+        AND i.chapter = (SELECT max(chapter) FROM incomes
+                          WHERE "userId" = $1 AND repeats AND chapter < $2::varchar)
+        AND NOT EXISTS (SELECT 1 FROM incomes WHERE "userId" = $1 AND chapter = $2::varchar)
+     ON CONFLICT ("copiedFromId") DO NOTHING`,
+    [userId, chapter],
+  );
+}
+
+// Fill THIS month only (past months are left exactly as they were)
+export async function ensureThisMonthIncome(userId: string, chapter: string): Promise<void> {
+  if (chapter === currentChapter()) await ensureMonthIncome(userId, chapter);
+}
+
 export async function listIncomes(userId: string, chapter: string): Promise<IncomeDTO[]> {
   const repo = await getRepo("Income");
-  const rows = await repo.find({ where: { userId, chapter }, order: { createdAt: "ASC" } });
+  const rows = await repo.find({
+    where: { userId, chapter, status: Not("skipped") },
+    order: { createdAt: "ASC" },
+  });
   return rows.map(toDTO);
 }
 
 export async function getIncome(userId: string, id: string): Promise<IncomeDTO | null> {
   const repo = await getRepo("Income");
-  const row = await repo.findOne({ where: { id, userId } });
+  const row = await repo.findOne({ where: { id, userId, status: Not("skipped") } });
   return row ? toDTO(row) : null;
 }
 
 export async function createIncome(userId: string, input: IncomeInput): Promise<IncomeDTO> {
+  // First bring in this month's repeating incomes: once the month has a row,
+  // it is never filled again, so this must happen before adding a new one.
+  await ensureThisMonthIncome(userId, input.chapter);
   return moneyTransaction(userId, async (m) => {
     const repo = m.getRepository<Income>("Income");
-    const income = repo.create({ userId, chapter: input.chapter, title: input.title, amount: input.amount });
+    const income = repo.create({
+      userId,
+      chapter: input.chapter,
+      title: input.title,
+      amount: input.amount,
+      repeats: input.repeats,
+      copiedFromId: null,
+    });
     clearReceived(income);
     await repo.save(income);
     if (input.received) await markReceived(m, income, input.receivedOn!, input.savings);
@@ -146,13 +194,14 @@ export async function updateIncome(
 ): Promise<IncomeDTO | null> {
   return moneyTransaction(userId, async (m) => {
     const repo = m.getRepository<Income>("Income");
-    const income = await repo.findOne({ where: { id, userId } });
+    const income = await repo.findOne({ where: { id, userId, status: Not("skipped") } });
     if (!income) return null;
 
     const wasReceived = income.status === "received";
     income.chapter = input.chapter;
     income.title = input.title;
     income.amount = input.amount;
+    income.repeats = input.repeats;
 
     if (wasReceived) {
       // Remove the old money movements; re-create them below if still received
@@ -173,7 +222,7 @@ export async function updateIncome(
     }
 
     // Taking money back out can't leave an account below zero (e.g. if the
-    // Sadqa or savings part was already given away or moved)
+    // savings part was already moved, or its Sadqa was already given)
     await assertAllNonNegative(m, userId);
     return toDTO(income);
   });
@@ -185,7 +234,9 @@ export async function receiveIncome(
   input: ReceiveInput,
 ): Promise<IncomeDTO | null> {
   return moneyTransaction(userId, async (m) => {
-    const income = await m.getRepository<Income>("Income").findOne({ where: { id, userId } });
+    const income = await m
+      .getRepository<Income>("Income")
+      .findOne({ where: { id, userId, status: Not("skipped") } });
     if (!income) return null;
     if (income.status === "received") {
       throw new FieldError(null, "This income is already marked as received.");
@@ -199,7 +250,7 @@ export async function receiveIncome(
 export async function unreceiveIncome(userId: string, id: string): Promise<IncomeDTO | null> {
   return moneyTransaction(userId, async (m) => {
     const repo = m.getRepository<Income>("Income");
-    const income = await repo.findOne({ where: { id, userId } });
+    const income = await repo.findOne({ where: { id, userId, status: Not("skipped") } });
     if (!income) return null;
     if (income.status !== "received") return toDTO(income);
 
@@ -211,11 +262,18 @@ export async function unreceiveIncome(userId: string, id: string): Promise<Incom
   });
 }
 
+// Deletes it for THIS month only. The row is kept but hidden ("skipped"):
+// that way the month is never filled again by ensureMonthIncome, and an
+// "Every month" income still comes back next month.
 export async function deleteIncome(userId: string, id: string): Promise<boolean> {
   return moneyTransaction(userId, async (m) => {
-    // ON DELETE CASCADE removes its money movements too
-    const result = await m.getRepository<Income>("Income").delete({ id, userId });
-    if ((result.affected ?? 0) === 0) return false;
+    const repo = m.getRepository<Income>("Income");
+    const income = await repo.findOne({ where: { id, userId, status: Not("skipped") } });
+    if (!income) return false;
+    await deleteIncomeEntries(m, income); // its money movements, if received
+    clearReceived(income);
+    income.status = "skipped";
+    await repo.save(income);
     await assertAllNonNegative(m, userId);
     return true;
   });
