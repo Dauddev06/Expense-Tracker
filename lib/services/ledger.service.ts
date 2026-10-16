@@ -1,4 +1,4 @@
-import { In } from "typeorm";
+import { Between, In } from "typeorm";
 import { getRepo } from "@/lib/db/data-source";
 import type { LedgerEntry } from "@/lib/db/entities/LedgerEntry";
 import {
@@ -81,6 +81,33 @@ export async function createMoneyAction(
     }
     return toDTO(saved);
   });
+}
+
+// One movement the user added by hand, for its detail page. null if it
+// isn't theirs, or wasn't added by hand (those have their own pages).
+export async function getMoneyAction(
+  userId: string,
+  id: string,
+): Promise<LedgerEntryDTO | null> {
+  const repo = await getRepo("LedgerEntry");
+  const entry = await repo.findOne({
+    where: { id, userId, type: In([...MONEY_ACTIONS]) },
+  });
+  return entry ? toDTO(entry) : null;
+}
+
+// Money added by hand ("Add money", not income) between two days, newest first
+export async function listDeposits(
+  userId: string,
+  from: string,
+  to: string,
+): Promise<LedgerEntryDTO[]> {
+  const repo = await getRepo("LedgerEntry");
+  const rows = await repo.find({
+    where: { userId, type: "deposit", occurredOn: Between(from, to) },
+    order: { occurredOn: "DESC", createdAt: "DESC" },
+  });
+  return rows.map(toDTO);
 }
 
 // Removes a movement the user added by hand on the Accounts page.

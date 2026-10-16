@@ -8,7 +8,8 @@ import {
 import { ensureThisMonthIncome, listIncomes } from "./income.service";
 import { getUserAccounts } from "./savings-account.service";
 import { getMonthSpending } from "./spending.service";
-import { currentChapter } from "@/lib/dates";
+import { listDeposits } from "./ledger.service";
+import { chapterEnd, chapterStart, currentChapter } from "@/lib/dates";
 
 // Everything the Dashboard shows, for one month ("chapter"):
 // each account from the start to the end of the month, and the month itself.
@@ -19,7 +20,7 @@ export async function getDashboard(userId: string, chapter: string) {
   // to pay. Everything else doesn't need them, so it runs at the same time.
   const repeatingReady = ensureChapterOccurrences(userId, chapter);
 
-  const [accounts, ledger, incomes, planned, carried, spending] = await Promise.all([
+  const [accounts, ledger, incomes, planned, carried, spending, deposits] = await Promise.all([
     getUserAccounts(userId),
     getAccountsChapter(userId, chapter),
     // New month: last month's "Every month" incomes are copied in first
@@ -28,6 +29,8 @@ export async function getDashboard(userId: string, chapter: string) {
     // Unpaid expected expenses from earlier months still count while it's this month
     isThisMonth ? listCarriedOver(userId, chapter) : Promise.resolve([]),
     getMonthSpending(userId, chapter),
+    // Money added by hand this month, on top of income
+    listDeposits(userId, chapterStart(chapter), chapterEnd(chapter)),
   ]);
 
   const incomeExpected = incomes.reduce((sum, i) => sum + i.amount, 0);
@@ -50,6 +53,10 @@ export async function getDashboard(userId: string, chapter: string) {
       pendingCount: planned.filter((p) => p.status === "pending").length + carried.length,
     },
     spending,
+    added: {
+      total: Math.round(deposits.reduce((sum, e) => sum + e.amount, 0) * 100) / 100,
+      items: deposits,
+    },
     total: Math.round(total * 100) / 100,
   };
 }

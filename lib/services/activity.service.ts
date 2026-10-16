@@ -64,7 +64,10 @@ function sentenceFor(e: LedgerEntry, accounts: AccountInfo[]): string {
 }
 
 // What removing a hand-made movement will do, in plain words.
-function removeEffect(e: LedgerEntry, accounts: AccountInfo[]): string {
+export function removeEffect(
+  e: Pick<LedgerEntry, "type" | "amount" | "fromAccount" | "toAccount">,
+  accounts: AccountInfo[],
+): string {
   const amount = formatMoney(e.amount);
   if (e.type === "deposit")
     return `This will take ${amount} back out of ${accountLabel(e.toAccount!, accounts)}.`;
@@ -77,6 +80,7 @@ function hrefFor(e: LedgerEntry): string | null {
   if (e.loanId) return `/loans/${e.loanId}`;
   if (e.income) return `/income?chapter=${e.income.chapter}`;
   if (e.type === "opening") return "/accounts/opening";
+  if (isMoneyAction(e.type)) return `/movements/${e.id}`;
   return null;
 }
 

@@ -52,11 +52,19 @@ export default async function DashboardPage({ searchParams }: PageProps<"/home">
         </div>
         <p className="mt-3 text-sm text-hero-ink/70">{isThisMonth ? "Total money" : `Total money at the end of ${monthName}`}</p>
         <p className="amount text-4xl sm:text-5xl">{formatMoney(d.total)}</p>
-        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <div className="hero-box">
             <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">Income</p>
             <p className="amount mt-0.5 text-positive-solid">+{formatMoney(d.income.received)}</p>
           </div>
+          {/* Money added by hand (gifts etc.), not income: tap to see the list below */}
+          <a href="#added-title" className="hero-box transition hover:bg-white/5">
+            <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">Money added</p>
+            <p className="amount mt-0.5 text-positive-solid">
+              +{formatMoney(d.added.total)}
+              <span className="ml-1.5 text-xs text-hero-ink/60">({d.added.items.length})</span>
+            </p>
+          </a>
           <div className="hero-box">
             <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">Spent</p>
             <p className="amount mt-0.5 text-[#ff8a80]">−{formatMoney(d.spending.total)}</p>
@@ -65,7 +73,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/home">
             <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">Income still coming</p>
             <p className="amount mt-0.5">{formatMoney(Math.max(d.income.expected - d.income.received, 0))}</p>
           </div>
-          <Link href={`/expected?chapter=${chapter}`} className="hero-box transition hover:bg-white/5">
+          <Link
+            href={`/expected?chapter=${chapter}`}
+            className="hero-box col-span-2 transition hover:bg-white/5 sm:col-span-1"
+          >
             <p className="text-[11px] tracking-wider text-hero-ink/60 uppercase">Still to pay</p>
             <p className="amount mt-0.5 text-[#fcd34d]">
               {formatMoney(d.toPay.stillToPay)}
@@ -121,6 +132,40 @@ export default async function DashboardPage({ searchParams }: PageProps<"/home">
                     </span>
                   </span>
                   <span className="amount money-out">−{formatMoney(s.amount)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* 4. Money added by hand this month (not income) */}
+      <section aria-labelledby="added-title" className="card scroll-mt-6">
+        <div className="card-header">
+          <div>
+            <h2 id="added-title" className="card-title">
+              Money added in {monthName}
+            </h2>
+            <p className="row-meta">{formatMoney(d.added.total)} added on top of income</p>
+          </div>
+          <Link href="/money/add" className="btn-link -mr-3">
+            Add money
+          </Link>
+        </div>
+        {d.added.items.length === 0 ? (
+          <p className="text-muted">No money added in {month} other than income.</p>
+        ) : (
+          <ul className="-my-3 divide-y divide-line-soft">
+            {d.added.items.map((e) => (
+              <li key={e.id}>
+                <Link href={`/movements/${e.id}`} className="list-row -mx-2 rounded-xl px-2 hover:bg-surface-2">
+                  <span className="min-w-0 flex-1">
+                    <span className="row-title block truncate">{e.note ?? "Added money"}</span>
+                    <span className="row-meta block">
+                      {friendlyDate(e.occurredOn, today)} · into {accountLabel(e.toAccount!, d.accounts)}
+                    </span>
+                  </span>
+                  <span className="amount money-in">+{formatMoney(e.amount)}</span>
                 </Link>
               </li>
             ))}
