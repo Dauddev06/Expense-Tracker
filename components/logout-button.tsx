@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { signOut } from "next-auth/react";
 import { Icon } from "@/components/icons";
 
 // compact = icon only (the laptop sidebar)
@@ -11,7 +12,7 @@ export function LogoutButton({ compact = false }: { compact?: boolean }) {
 
   async function handleLogout() {
     setLoading(true);
-    await fetch("/api/logout", { method: "POST" });
+    await signOut({ redirect: false }); // NextAuth deletes the login cookie
     router.push("/login");
     router.refresh();
   }

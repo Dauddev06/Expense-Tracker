@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { signIn } from "next-auth/react";
 
 type LoginFormValues = {
   email: string;
@@ -24,19 +25,23 @@ export function LoginForm() {
   async function onSubmit(values: LoginFormValues) {
     setServerError(null);
 
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
+    // NextAuth posts to /api/auth/callback/credentials, which runs our
+    // authorize() in auth.ts. redirect: false -> stay here and tell us how
+    // it went, so we can show our own message inside the form.
+    const result = await signIn("credentials", {
+      email: values.email,
+      password: values.password,
+      redirect: false,
     });
 
-    if (!res.ok) {
-      const data = await res.json();
-      setServerError(data.message ?? "Login failed");
+    if (result?.error) {
+      // Same message for "no such email" and "wrong password" on purpose:
+      // we don't want to tell attackers which emails are registered.
+      setServerError("Invalid email or password");
       return;
     }
 
-    // The server has set the session cookie. Go to the app.
+    // NextAuth has set the login cookie. Go to the app.
     router.push("/home");
     router.refresh();
   }
