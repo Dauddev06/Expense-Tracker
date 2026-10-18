@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { hasSessionCookie } from "@/lib/session";
+import { isLoggedIn } from "@/lib/session";
 import { BrandMark } from "@/components/brand";
 import { Icon, type IconName } from "@/components/icons";
 import { LandingHeader } from "@/components/landing/landing-header";
@@ -183,8 +183,8 @@ function Eyebrow({ children, dark = false }: { children: React.ReactNode; dark?:
 // ---------------------------------------------------------------------------
 
 export default async function LandingPage() {
-  // Logged in? Go straight to the app (this is only a cookie check, no database)
-  if (await hasSessionCookie()) redirect("/home");
+  // Logged in? Go straight to the app (NextAuth only opens the cookie, no database)
+  if (await isLoggedIn()) redirect("/home");
 
   return (
     <div className="flex flex-1 flex-col bg-canvas">

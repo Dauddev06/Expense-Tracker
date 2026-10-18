@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { signIn } from "next-auth/react";
 
 // The shape of our form's data
 type RegisterFormValues = {
@@ -48,7 +49,19 @@ export function RegisterForm() {
       return;
     }
 
-    // The server already logged us in. Start the welcome steps.
+    // The account exists now. Log in with the same email and password.
+    const login = await signIn("credentials", {
+      email: values.email,
+      password: values.password,
+      redirect: false,
+    });
+    if (login?.error) {
+      // Very unlikely, but don't leave them stuck: the account is there.
+      router.push("/login?registered=1");
+      return;
+    }
+
+    // Logged in. Start the welcome steps.
     router.push("/welcome");
     router.refresh();
   }
